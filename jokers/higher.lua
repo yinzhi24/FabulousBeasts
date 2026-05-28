@@ -24,8 +24,8 @@ SMODS.Joker({
     loc_txt = {
         name = "Bixie True Form",
         text = {
-            "Gains {X:consumable,C:white}^0.1{} Mult every round, {X:consumable,C:white}^0.15{} for",
-            "boss and {X:consumable,C:white}^0.2{} for final bosses.",
+            "Gains {X:consumable,C:white}^#2#{} Mult every round, {X:consumable,C:white}^#3#{} for",
+            "boss and {X:consumable,C:white}^#4#{} for final bosses.",
             "{C:inactive}Currently {X:consumable,C:white}^#1#{C:inactive} Mult{}"
         }
     },
@@ -38,19 +38,27 @@ SMODS.Joker({
 
     discovered = true,
     unlocked = true,
-    config = {extra = {emult = 1}},
-    loc_vars = function(self, info_queue, card) return {vars = {card.ability.extra.emult}} end,
+    blueprint_compat = false,
+
+    config = {extra = {emult = 1, gain_round = 0.1, gain_boss = 0.15, gain_final = 0.2}},
+    loc_vars = function(self, info_queue, card)
+        return {vars = {
+            card.ability.extra.emult,
+            card.ability.extra.gain_round,
+            card.ability.extra.gain_boss,
+            card.ability.extra.gain_final
+        }}
+    end,
     calculate = function(self, card, context)
-        if context.joker_main then return {e_mult = card.ability.extra.emult} end
-        if context.end_of_round and not context.blueprint then
-            local gain = 0.1
-            if G.GAME.blind and G.GAME.blind.boss then
-                gain = FB.is_final_boss() and 0.2 or 0.15
-            end
+        if FB.is_scoring_joker_main(context) then return {e_mult = card.ability.extra.emult} end
+        if FB.main_end_of_round_once(card, context, 'fb_bixie_true_scaled') then
+            -- Only one condition applies. Final boss > boss > normal round.
+            local gain = FB.round_condition_value(card, 'gain_round', 'gain_boss', 'gain_final')
             card.ability.extra.emult = card.ability.extra.emult + gain
         end
     end
 })
+
 
 SMODS.Joker({
     key = "rainbow_mountain_range",
@@ -58,9 +66,9 @@ SMODS.Joker({
     loc_txt = {
         name = "Rainbow Mountain Range",
         text = {
-            "{X:mult,C:white}XMult{} also give {X:chips,C:white}XChips{} of the same amount,",
-            "same with {X:chips,C:white}XChips{} for {X:mult,C:white}XMult{} and also",
-            "{X:purple,C:white}^Chips{}/{X:consumable,C:white}^Mult{}"
+            "Gives {X:chips,C:white}XChips{} equal to current",
+            "{C:mult}Mult{}, and {X:mult,C:white}XMult{} equal to",
+            "current {C:chips}Chips{}"
         }
     },
 
@@ -72,7 +80,16 @@ SMODS.Joker({
 
     discovered = true,
     unlocked = true,
-    calculate = function(self, card, context) if context.joker_main then return {x_chips = math.max(1, mult), x_mult = math.max(1, hand_chips)} end end
+    blueprint_compat = false,
+
+    calculate = function(self, card, context)
+        if FB.is_scoring_joker_main(context) then
+            return {
+                x_chips = math.max(1, FB.num(mult, 1)),
+                x_mult = math.max(1, FB.num(hand_chips, 1))
+            }
+        end
+    end
 })
 
 SMODS.Joker({
@@ -81,8 +98,10 @@ SMODS.Joker({
     loc_txt = {
         name = "Qishiqi",
         text = {
-            "Every 77 [#1#] card triggers you get {X:purple,C:white}^7{} Chips",
-            "and {X:consumable,C:white}^7{} Mult"
+            "Every {C:attention}#2#{} played-card triggers,",
+            "gain {X:purple,C:white}^#3#{} Chips and",
+            "{X:consumable,C:white}^#4#{} Mult",
+            "{C:inactive}Triggers: #1#/#2#{}"
         }
     },
 
@@ -94,16 +113,28 @@ SMODS.Joker({
 
     discovered = true,
     unlocked = true,
-    config = {extra = {triggers = 0}},
-    loc_vars = function(self, info_queue, card) return {vars = {card.ability.extra.triggers}} end,
+    blueprint_compat = false,
+
+    config = {extra = {triggers = 0, needed = 77, echips = 7, emult = 7}},
+    loc_vars = function(self, info_queue, card)
+        return {vars = {
+            card.ability.extra.triggers,
+            card.ability.extra.needed,
+            card.ability.extra.echips,
+            card.ability.extra.emult
+        }}
+    end,
     calculate = function(self, card, context)
-        if context.individual and context.cardarea == G.play then card.ability.extra.triggers = card.ability.extra.triggers + 1 end
-        if context.joker_main and card.ability.extra.triggers >= 77 then
-            card.ability.extra.triggers = card.ability.extra.triggers - 77
-            return {e_chips = 7, e_mult = 7, message = "^7"}
+        if FB.is_scoring_individual(context) then
+            card.ability.extra.triggers = card.ability.extra.triggers + 1
+        end
+        if FB.is_scoring_joker_main(context) and card.ability.extra.triggers >= card.ability.extra.needed then
+            card.ability.extra.triggers = card.ability.extra.triggers - card.ability.extra.needed
+            return {e_chips = card.ability.extra.echips, e_mult = card.ability.extra.emult,}
         end
     end
 })
+
 
 SMODS.Joker({
     key = "shi_qilin",
@@ -111,7 +142,8 @@ SMODS.Joker({
     loc_txt = {
         name = "Shi Qilin",
         text = {
-            "Create a random beast every round."
+            "At blind start, create a random",
+            "{C:attention}Beast{} Joker"
         }
     },
 
@@ -123,51 +155,38 @@ SMODS.Joker({
 
     discovered = true,
     unlocked = true,
-    calculate = function(self, card, context) if context.setting_blind and not context.blueprint then FB.create_random_joker('shi_qilin'); return {message = "Beast!", colour = G.C.GREEN} end end
+    blueprint_compat = false,
+
+    calculate = function(self, card, context)
+        if context.setting_blind and not context.blueprint then
+            FB.create_random_joker('shi_qilin')
+            return {
+                message = 'Beast!',
+                colour = G.C.GREEN
+            }
+        end
+    end
 })
 
 SMODS.Joker({
     key = "qilin_sibuxiang",
-
-    loc_txt = {
-        name = "Qilin Form Sibuxiang",
-        text = {
-            "{C:attention}Retrigger{} {C:blue}Tianlu{} AND {C:red}Bixie{}",
-            "for every joker triggered"
-        }
-    },
-
-    atlas = "jokers",
-    pos = {x = 9, y = 10},
-
-    rarity = "fb_exotic",
-    cost = 50,
-
-    discovered = true,
-    unlocked = true,
+    loc_txt = {name = "Qilin Form Sibuxiang", text = {"{C:attention}Retrigger{} {C:blue}Tianlu{} and {C:red}Bixie{}", "once for each triggered card"}},
+    atlas = "jokers", pos = {x = 9, y = 10}, rarity = "fb_exotic", cost = 50,
+    discovered = true, unlocked = true, blueprint_compat = false,
     calculate = function(self, card, context)
-        local function is_qilin_target(other_card)
-            if not other_card then
-                return false
-            end
+        local key = context.other_card and FB.raw_key(context.other_card)
+        local is_target = key == 'tianlu'
+            or key == 'tianlu_true_form'
+            or key == 'bixie'
+            or key == 'bixie_true_form'
 
-            local key = FB.get_center_key(other_card)
-            return key == FB.key('tianlu')
-                or key == FB.key('tianlu_true_form')
-                or key == FB.key('baby_tianlu')
-                or key == FB.key('bixie')
-                --or key == FB.key('bixie_true_form') temporary disabled until definition
-                --or key == FB.key('baby_bixie')
-        end
-
-        if context.before and not context.blueprint and G.jokers and G.jokers.cards then
-            for _, j in ipairs(G.jokers.cards) do j.fb_qilin_retriggered = nil end
-        end
-        if context.retrigger_joker_check and context.other_card and context.other_card ~= card
-            and not context.other_card.fb_qilin_retriggered
-            and is_qilin_target(context.other_card) then
-            context.other_card.fb_qilin_retriggered = true
-            return {repetitions = 2, card = card}
+        if FB.is_safe_joker_retrigger_context(context)
+            and is_target
+            and FB.once_joker_retrigger(card, context, 'qilin_sibuxiang') then
+            return {
+                repetitions = #(G.play and G.play.cards or {}),
+                card = card
+            }
         end
     end
 })
@@ -180,7 +199,7 @@ SMODS.Joker({
         text = {
             "Gains {X:purple,C:white}^0.01{} Chips for each dollar",
             "consumed.",
-            "{C:inactive}Currently {X:purple,C:white}^#1# {C:inactive} Chips{}"
+            "{C:inactive}Currently {X:purple,C:white}^#1#{} Chips{}"
         }
     },
 
@@ -192,6 +211,8 @@ SMODS.Joker({
 
     discovered = true,
     unlocked = true,
+    blueprint_compat = false,
+
     config = {extra = {echips = 1}},
     loc_vars = function(self, info_queue, card) return {vars = {card.ability.extra.echips}} end,
     calculate = function(self, card, context)
@@ -201,7 +222,7 @@ SMODS.Joker({
             FB.try_add_dollars(-d)
         end
 
-        if context.joker_main then
+        if FB.is_scoring_joker_main(context) then
             return {e_chips = card.ability.extra.echips}
         end
     end
@@ -213,8 +234,9 @@ SMODS.Joker({
     loc_txt = {
         name = "Happy Ending",
         text = {
-            "{C:edition,E:1,s:1.2}You did it!{}",
-            "{X:edition}^^7{} Chips and {X:dark_edition,C:white}^^7{} Mult."
+            "{C:edition,E:#1#,s:#2#}You did it!{}",
+            "{X:edition,C:chips}^^#3#{} Chips",
+            "{X:dark_edition,C:mult}^^#4#{} Mult"
         }
     },
 
@@ -226,7 +248,20 @@ SMODS.Joker({
 
     discovered = true,
     unlocked = true,
-    calculate = function(self, card, context) if context.joker_main then return {ee_chips = 7, ee_mult = 7, message = "^.^"} end end
+    blueprint_compat = false,
+    config = {extra = {fb_loc_vars = {"1", "1.2", "7", "7"}}},
+
+    loc_vars = function(self, info_queue, card) return FB.static_loc_vars(card) end,
+
+
+    calculate = function(self, card, context)
+        if FB.is_scoring_joker_main(context) then
+            return {
+                ee_chips = 7,
+                ee_mult = 7
+            }
+        end
+    end
 })
 
 SMODS.Joker({
@@ -238,8 +273,8 @@ SMODS.Joker({
             "{C:dark_edition,E:1,s:1.2}Gives me magical powers!{}",
             "{C:inactive}(Cannot be debuffed, destroyed,{}",
             "{C:inactive}or negatively affected){}",
-            "{C:attention}Retriggers{} all cards",
-            "Each time a card or Joker is triggered:",
+            "{C:attention}Retrigger{} all cards and Jokers",
+            "Triggered cards and Jokers give:",
             "{C:chips}+999{} Chips {C:mult}+999{} Mult",
             "{X:chips,C:white}X999{} Chips {X:mult,C:white}X999{} Mult",
             "{X:purple,C:white}^999{} Chips {X:consumable,C:white}^999{} Mult",
@@ -270,6 +305,8 @@ SMODS.Joker({
             e_chips = 999,
             e_mult = 999,
             ee_chips = 999,
+            ee_mult = 999,
+            eee_chips = 999,
             eee_mult = 999,
         }
     },
@@ -286,14 +323,13 @@ SMODS.Joker({
     end,
 
     calculate = function(self, card, context)
-
-        -- Prevent debuffs
-        if card.debuff then
+        -- Prevent debuffs (do not mutate state during blueprint previews)
+        if not context.blueprint and card.debuff then
             card.debuff = false
         end
 
         -- Retrigger all played cards
-        if context.repetition and context.cardarea == G.play then
+        if FB.is_card_repetition(context) and context.cardarea == G.play then
             return {
                 repetitions = 1,
                 card = card
@@ -301,8 +337,9 @@ SMODS.Joker({
         end
 
         -- Retrigger all jokers
-        if context.retrigger_joker_check
-        and context.other_card ~= card then
+        if FB.is_safe_joker_retrigger_context(context)
+        and context.other_card ~= card
+        and FB.once_joker_retrigger(card, context, 'super_lollipop') then
             return {
                 repetitions = 1,
                 card = card
@@ -321,13 +358,12 @@ SMODS.Joker({
                 ee_mult = card.ability.extra.ee_mult,
                 eee_chips = card.ability.extra.eee_chips,
                 eee_mult = card.ability.extra.eee_mult,
-                message = "Tasty!",
                 colour = G.C.EDITION,
                 card = card
             }
         end
 
-        if context.individual and context.cardarea == G.play and context.other_card and context.other_card ~= card then
+        if FB.is_scoring_individual(context) and context.other_card and context.other_card ~= card then
             return apply_lollipop_bonus()
         end
 
