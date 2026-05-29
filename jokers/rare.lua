@@ -52,6 +52,153 @@ SMODS.Joker({
     end
 })
 
+SMODS.Joker({
+    key = "baby_bixie",
+    loc_txt = {
+        name = "Baby Bixie",
+        text = {
+            "Gains {C:mult}+#2#{} Mult every round",
+            "Evolves into {C:attention}Bixie{} at {C:mult}+#3#{} Mult",
+            "{C:inactive}Currently {C:mult}+#1#{} Mult{}"
+        }
+    },
+    atlas = "jokers",
+    pos = {x = 1, y = 0},
+    rarity = 3,
+    cost = 13,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {
+            mult = 0,
+            mult_gain = 10,
+            evolve_mult = 300
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        local extra = card.ability.extra
+        return {
+            vars = {
+                extra.mult or 0,
+                extra.mult_gain or 10,
+                extra.evolve_mult or 300
+            }
+        }
+    end,
+
+    calculate = function(self, card, context)
+        local extra = card.ability.extra
+
+        if FB.main_end_of_round_once(card, context, 'fb_baby_bixie_growth') then
+            extra.mult = (extra.mult or 0) + (extra.mult_gain or 10)
+
+            if (extra.mult or 0) >= (extra.evolve_mult or 300) then
+                FB.queue_create_joker('bixie')
+                FB.queue_self_destroy(card)
+                FB.resolve_or_defer_queued_actions(context)
+
+                return {
+                    message = "Evolved!",
+                    colour = G.C.GREEN,
+                    card = card
+                }
+            end
+
+            return {
+                message = "+" .. (extra.mult_gain or 10),
+                colour = G.C.MULT,
+                card = card
+            }
+        end
+
+        if FB.is_scoring_joker_main(context) then
+            return {
+                mult = extra.mult or 0,
+                card = card
+            }
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "baby_tianlu",
+    loc_txt = {
+        name = "Baby Tianlu",
+        text = {
+            "At blind start, consume all money",
+            "and gain {C:chips}+#2#{} Chips per {C:money}$1{} consumed",
+            "Evolves into {C:attention}Tianlu{} at {C:chips}+#3#{} Chips",
+            "{C:inactive}Currently {C:chips}+#1#{} Chips{}"
+        }
+    },
+    atlas = "jokers",
+    pos = {x = 0, y = 0},
+    rarity = 3,
+    cost = 13,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {
+            chips = 0,
+            chip_gain_per_dollar = 10,
+            evolve_chips = 1000
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        local extra = card.ability.extra
+        return {
+            vars = {
+                extra.chips or 0,
+                extra.chip_gain_per_dollar or 10,
+                extra.evolve_chips or 1000
+            }
+        }
+    end,
+
+    calculate = function(self, card, context)
+        local extra = card.ability.extra
+
+        if context.setting_blind and not context.blueprint then
+            local dollars = math.max(0, G.GAME.dollars or 0)
+
+            if dollars > 0 then
+                extra.chips = (extra.chips or 0) + dollars * (extra.chip_gain_per_dollar or 10)
+                FB.try_add_dollars(-dollars)
+            end
+
+            if (extra.chips or 0) >= (extra.evolve_chips or 1000) then
+                FB.queue_create_joker('tianlu')
+                FB.queue_self_destroy(card)
+                FB.resolve_or_defer_queued_actions(context)
+
+                return {
+                    message = "Evolved!",
+                    colour = G.C.GREEN,
+                    card = card
+                }
+            end
+
+            return {
+                message = "+" .. tostring(dollars * (extra.chip_gain_per_dollar or 10)),
+                colour = G.C.CHIPS,
+                card = card
+            }
+        end
+
+        if FB.is_scoring_joker_main(context) then
+            return {
+                chips = extra.chips or 0,
+                card = card
+            }
+        end
+    end
+})
 
 SMODS.Joker({
     key = "body_swap_mushroom",
@@ -161,29 +308,41 @@ SMODS.Joker({
     loc_txt = {
         name = "Divine Garment",
         text = {
-            "{C:attention}Retrigger{} the Joker to the left once",
-            "{C:inactive}#1#{}"
+            "{C:attention}Retrigger{} Legendary Jokers once",
+            "{C:inactive}Only affects rarity 4 Jokers{}"
         }
     },
-    atlas = "jokers", pos = {x = 9, y = 5}, rarity = 3, cost = 12,
-    discovered = true, unlocked = true, blueprint_compat = true,
-    loc_vars = function(self, info_queue, card)
-        local idx = FB.find_joker_index(card)
-        local left = idx and G.jokers and G.jokers.cards and G.jokers.cards[idx - 1]
-        local ok = left and left.config and left.config.center and left.config.center.blueprint_compat == true
-        return {vars = {ok and "Compatible" or "Incompatible"}}
-    end,
+    atlas = "jokers",
+    pos = {x = 9, y = 5},
+    rarity = 3,
+    cost = 12,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
     calculate = function(self, card, context)
-        if FB.is_safe_joker_retrigger_context(context)
+        if context
+            and context.retrigger_joker_check
             and context.other_card
-            and G.jokers
-            and G.jokers.cards
+            and context.other_card ~= card
+            and not context.end_of_round
+            and not context.setting_blind
+            and not context.before
+            and not context.after
+            and not context.selling_card
+            and not context.selling_self
+            and not context.destroy_card
+            and not context.remove_playing_cards
+            and context.other_card.config
+            and context.other_card.config.center
+            and context.other_card.config.center.rarity == 4
             and FB.once_joker_retrigger(card, context, 'divine_garment') then
-            local idx = FB.find_joker_index(card)
-            local left = idx and G.jokers.cards[idx - 1]
-            if left and context.other_card == left and left.config and left.config.center and left.config.center.blueprint_compat == true then
-                return {repetitions = 1, card = card}
-            end
+
+            return {
+                message = localize('k_again_ex'),
+                repetitions = 1,
+                card = card
+            }
         end
     end
 })
@@ -268,7 +427,7 @@ SMODS.Joker({
     remove_from_deck = function(self, card, from_debuff) FB.safe_change_hand_size(-1) end,
     calculate = function(self, card, context)
         if FB.is_scoring_individual(context) and context.other_card and context.other_card.edition then return {x_chips = 2, x_mult = 2} end
-        if FB.is_safe_joker_retrigger_context(context) and context.other_card and context.other_card.edition and FB.once_joker_retrigger(card, context, 'dreamscape') then return {repetitions = 1, card = card} end
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and context.other_card and context.other_card.edition and FB.once_joker_retrigger(card, context, 'dreamscape') then return {repetitions = 1, card = card} end
     end
 })
 
@@ -503,15 +662,14 @@ SMODS.Joker({
 
 SMODS.Joker({
     key = "pixiu_horn",
-
     loc_txt = {
         name = "Pixiu Horn",
         text = {
             "Randomly gives {X:money,C:white}X2{} money,",
-            "{X:chips,C:white}X5{} Chips, {C:mult}+#1#{} Mult,",
-            "or {X:money,C:white}X0.#2#{} money",
-            "{C:green}#3# in #4#{} chance to {C:red}destroy{} itself",
-            "and lose {C:money}$#5#{}"
+            "{X:chips,C:white}X#2#{} Chips, {C:mult}+#1#{} Mult,",
+            "or {X:money,C:white}X0.#3#{} money",
+            "{C:green}#4# in #5#{} chance to {C:red}destroy{} itself",
+            "and lose {C:money}$#6#{}"
         }
     },
 
@@ -524,35 +682,195 @@ SMODS.Joker({
     discovered = true,
     unlocked = true,
     blueprint_compat = false,
-    config = {extra = {fb_loc_vars = {"888", "5", "1", "233", "444"}}},
+    config = {
+        extra = {
+            mult = 888,
+            xchips = 5,
+            money_halve_digit = 5,
+            odds_num = 1,
+            odds_den = 233,
+            break_cost = 444
+        }
+    },
 
-    loc_vars = function(self, info_queue, card) return FB.static_loc_vars(card) end,
-
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.mult,
+                card.ability.extra.xchips,
+                card.ability.extra.money_halve_digit,
+                card.ability.extra.odds_num,
+                card.ability.extra.odds_den,
+                card.ability.extra.break_cost
+            }
+        }
+    end,
 
     calculate = function(self, card, context)
         if FB.is_scoring_joker_main(context) then
-            local roll = pseudorandom('pixiu_horn')
-            if roll < (1/233) then
+            local extra = card.ability.extra
+
+            if FB.roll('pixiu_horn_break', extra.odds_num or 1, extra.odds_den or 233) then
                 local ret = {message = "Broke!", colour = G.C.RED, card = card}
                 if not context.blueprint then
-                    FB.try_add_dollars(-444)
+                    FB.try_add_dollars(-(extra.break_cost or 444))
                     FB.queue_self_destroy(card)
                     FB.resolve_or_defer_queued_actions(context)
                 end
                 return ret
             end
 
-            if roll < 0.25 then
-                return {x_chips = 5}
-            elseif roll < 0.5 then
-                return {mult = 888}
-            elseif roll < 0.75 then
+            local effect = pseudorandom_element({
+                'x_chips',
+                'mult',
+                'money_double',
+                'money_halve'
+            }, pseudoseed('pixiu_horn_effect'))
+
+            if effect == 'x_chips' then
+                return {x_chips = extra.xchips or 5}
+            elseif effect == 'mult' then
+                return {mult = extra.mult or 888}
+            elseif effect == 'money_double' then
                 if not context.blueprint then FB.try_add_dollars(G.GAME.dollars or 0) end
                 return {message = "Money x2"}
             else
-                if not context.blueprint then FB.try_add_dollars(-math.floor((G.GAME.dollars or 0)/2)) end
+                if not context.blueprint then FB.try_add_dollars(-math.floor((G.GAME.dollars or 0) / 2)) end
                 return {message = "Money x0.5"}
             end
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "rigged_video_game",
+    loc_txt = {
+        name = "Rigged Video Game",
+        text = {
+            "At start of blind, if you have space,",
+            "create a random {C:attention}Joker{} with {C:attention}equal odds{}",
+            "then lose money based on its rarity",
+            "{C:inactive}Exotic and Divine Jokers cannot appear{}"
+        }
+    },
+    atlas = "jokers",
+    pos = {x = 0, y = 0},
+    rarity = 3,
+    cost = 10,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {
+            common_min = 1,
+            common_max = 5,
+            uncommon_min = 5,
+            uncommon_max = 15,
+            rare_min = 10,
+            rare_max = 30,
+            legendary_min = 15,
+            legendary_max = 50,
+            exotic_min = 20,
+            exotic_max = 75,
+            divine_min = 25,
+            divine_max = 99
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        return {vars = {}}
+    end,
+
+    calculate = function(self, card, context)
+        if context.setting_blind and not context.blueprint then
+            if not G.jokers or #G.jokers.cards >= G.jokers.config.card_limit then
+                return {
+                    message = "No Space!",
+                    colour = G.C.RED,
+                    card = card
+                }
+            end
+
+            local extra = card.ability.extra
+
+            local function get_cost_range(rarity)
+                if rarity == 1 or rarity == "Common" or rarity == "common" then
+                    return extra.common_min, extra.common_max
+                elseif rarity == 2 or rarity == "Uncommon" or rarity == "uncommon" then
+                    return extra.uncommon_min, extra.uncommon_max
+                elseif rarity == 3 or rarity == "Rare" or rarity == "rare" then
+                    return extra.rare_min, extra.rare_max
+                elseif rarity == 4 or rarity == "Legendary" or rarity == "legendary" then
+                    return extra.legendary_min, extra.legendary_max
+                elseif rarity == "Exotic" or rarity == "exotic" or rarity == "fb_exotic" then
+                    return extra.exotic_min, extra.exotic_max
+                elseif rarity == "Divine" or rarity == "divine" or rarity == "fb_divine" then
+                    return extra.divine_min, extra.divine_max
+                end
+
+                return extra.common_min, extra.common_max
+            end
+
+            local eligible = {}
+
+            for _, center in pairs(G.P_CENTERS) do
+                if center.set == "Joker"
+                    and center.unlocked ~= false
+                    and center.key ~= "j_fb_rigged_video_game"
+                    and center.key ~= "rigged_video_game"
+                    and center.rarity ~= "Exotic"
+                    and center.rarity ~= "exotic"
+                    and center.rarity ~= "fb_exotic"
+                    and center.rarity ~= "Divine"
+                    and center.rarity ~= "divine"
+                    and center.rarity ~= "fb_divine"
+                then
+                    eligible[#eligible + 1] = center
+                end
+            end
+
+            if #eligible <= 0 then
+                return {
+                    message = "No Prize!",
+                    colour = G.C.RED,
+                    card = card
+                }
+            end
+
+            local chosen = pseudorandom_element(eligible, pseudoseed("rigged_video_game"))
+            local min_cost, max_cost = get_cost_range(chosen.rarity)
+            local money_loss = pseudorandom("rigged_video_game_cost", min_cost, max_cost)
+
+            ease_dollars(-money_loss)
+
+            G.E_MANAGER:add_event(Event({
+                func = function()
+                    if G.jokers and #G.jokers.cards < G.jokers.config.card_limit then
+                        local new_card = create_card(
+                            "Joker",
+                            G.jokers,
+                            nil,
+                            nil,
+                            nil,
+                            nil,
+                            chosen.key,
+                            "rigged_video_game"
+                        )
+
+                        new_card:add_to_deck()
+                        G.jokers:emplace(new_card)
+                    end
+
+                    return true
+                end
+            }))
+
+            return {
+                message = "-$" .. money_loss,
+                colour = G.C.MONEY,
+                card = card
+            }
         end
     end
 })

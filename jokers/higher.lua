@@ -180,7 +180,7 @@ SMODS.Joker({
             or key == 'bixie'
             or key == 'bixie_true_form'
 
-        if FB.is_safe_joker_retrigger_context(context)
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards
             and is_target
             and FB.once_joker_retrigger(card, context, 'qilin_sibuxiang') then
             return {
@@ -337,7 +337,7 @@ SMODS.Joker({
         end
 
         -- Retrigger all jokers
-        if FB.is_safe_joker_retrigger_context(context)
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards
         and context.other_card ~= card
         and FB.once_joker_retrigger(card, context, 'super_lollipop') then
             return {

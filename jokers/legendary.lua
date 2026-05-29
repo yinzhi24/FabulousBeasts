@@ -26,7 +26,7 @@ SMODS.Joker({
     discovered = true, unlocked = true, blueprint_compat = true,
     calculate = function(self, card, context)
         local r = context.other_card and context.other_card.config and context.other_card.config.center and context.other_card.config.center.rarity
-        if FB.is_safe_joker_retrigger_context(context) and context.other_card ~= card and r ~= 4 and not FB.is_exotic_or_divine(context.other_card) and FB.once_joker_retrigger(card, context, 'bilibili') then
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and context.other_card ~= card and r ~= 4 and not FB.is_exotic_or_divine(context.other_card) and FB.once_joker_retrigger(card, context, 'bilibili') then
             return {repetitions = 1, card = card}
         end
     end
@@ -34,11 +34,33 @@ SMODS.Joker({
 
 SMODS.Joker({
     key = "bibi",
-    loc_txt = {name = "Bibi", text = {"Gain {X:mult,C:white}X#2#{} Mult for each", "enhancement, seal, and edition", "in your entire deck", "{C:inactive}Total modifiers: #1#{}"}},
+    loc_txt = {
+        name = "Bibi",
+        text = {
+            "Gain {X:mult,C:white}X#2#{} Mult for each",
+            "enhancement, seal, and edition",
+            "in your entire deck",
+            "{C:inactive}Total modifiers: #1#{}",
+            "{C:inactive}Currently {X:mult,C:white}X#3#{} Mult{}"
+        }
+    },
     atlas = "jokers", pos = {x = 6, y = 7}, rarity = 4, cost = 25,
     discovered = true, unlocked = true, blueprint_compat = false,
     config = {extra = {base = 1, gain = 1}},
-    loc_vars = function(self, info_queue, card) return {vars = {FB.count_deck_mods(), card.ability.extra.gain}} end,
+    loc_vars = function(self, info_queue, card)
+        local total_mods = FB.count_deck_mods()
+        local current_xmult =
+            (card.ability.extra.base or 1)
+            + total_mods * (card.ability.extra.gain or 1)
+
+        return {
+            vars = {
+                total_mods,
+                card.ability.extra.gain,
+                current_xmult
+            }
+        }
+    end,
     calculate = function(self, card, context)
         if FB.is_scoring_joker_main(context) then return {x_mult = (card.ability.extra.base or 1) + FB.count_deck_mods() * (card.ability.extra.gain or 1), card = card} end
     end
@@ -104,7 +126,7 @@ SMODS.Joker({
     blueprint_compat = true,
 
     calculate = function(self, card, context)
-        if FB.is_safe_joker_retrigger_context(context) and FB.is_joker_key(context.other_card, 'jinchi_dapeng') and FB.once_joker_retrigger(card, context, 'christina') then
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and FB.is_joker_key(context.other_card, 'jinchi_dapeng') and FB.once_joker_retrigger(card, context, 'christina') then
             return {repetitions = #((G.play and G.play.cards) or {}), card = card}
         end
     end
@@ -253,7 +275,7 @@ SMODS.Joker({
     add_to_deck = function(self, card, from_debuff) FB.safe_change_joker_slots(card.ability.extra.joker_slots or 2); if G.consumeables and G.consumeables.config then G.consumeables.config.card_limit = G.consumeables.config.card_limit + (card.ability.extra.consumable_slots or 1) end end,
     remove_from_deck = function(self, card, from_debuff) FB.safe_change_joker_slots(-(card.ability.extra.joker_slots or 2)); if G.consumeables and G.consumeables.config then G.consumeables.config.card_limit = G.consumeables.config.card_limit - (card.ability.extra.consumable_slots or 1) end end,
     calculate = function(self, card, context)
-        if FB.is_safe_joker_retrigger_context(context)
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards
             and FB.is_joker_key(context.other_card, 'bajin')
             and FB.once_joker_retrigger(card, context, 'erliang') then
             return {repetitions = card.ability.extra.repetitions or 1, card = card}
@@ -282,7 +304,7 @@ SMODS.Joker({
     blueprint_compat = false,
 
     calculate = function(self, card, context)
-        if FB.is_safe_joker_retrigger_context(context) and context.other_card ~= card and FB.has_mod_key(context.other_card) and FB.once_joker_retrigger(card, context, 'fenz') then
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and context.other_card ~= card and FB.has_mod_key(context.other_card) and FB.once_joker_retrigger(card, context, 'fenz') then
             return {repetitions = 1, card = card}
         end
     end
@@ -329,7 +351,7 @@ SMODS.Joker({
     config = {extra = {repetitions = 3}},
     loc_vars = function(self, info_queue, card) return {vars = {card.ability.extra.repetitions}} end,
     calculate = function(self, card, context)
-        if FB.is_safe_joker_retrigger_context(context) and context.other_card ~= card and FB.is_food_joker(context.other_card) and FB.once_joker_retrigger(card, context, 'fuzai') then
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and context.other_card ~= card and FB.is_food_joker(context.other_card) and FB.once_joker_retrigger(card, context, 'fuzai') then
             return {repetitions = card.ability.extra.repetitions or 3, card = card}
         end
     end
@@ -356,7 +378,7 @@ SMODS.Joker({
     blueprint_compat = false,
 
     calculate = function(self, card, context)
-        if FB.is_safe_joker_retrigger_context(context) and context.other_card and context.other_card ~= card and FB.is_beast_joker(context.other_card) and FB.once_joker_retrigger(card, context, 'hetao') then return {repetitions = 1, card = card} end
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and context.other_card and context.other_card ~= card and FB.is_beast_joker(context.other_card) and FB.once_joker_retrigger(card, context, 'hetao') then return {repetitions = 1, card = card} end
     end
 })
 
@@ -368,7 +390,7 @@ SMODS.Joker({
     config = {extra = {repetitions = 1}},
     calculate = function(self, card, context)
         if FB.is_card_repetition(context) and context.cardarea == G.play then return {repetitions = card.ability.extra.repetitions or 1, card = card} end
-        if FB.is_safe_joker_retrigger_context(context) and context.other_card ~= card and FB.once_joker_retrigger(card, context, 'hundun') then return {repetitions = card.ability.extra.repetitions or 1, card = card} end
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and context.other_card ~= card and FB.once_joker_retrigger(card, context, 'hundun') then return {repetitions = card.ability.extra.repetitions or 1, card = card} end
     end
 })
 
@@ -430,15 +452,79 @@ SMODS.Joker({
 
 SMODS.Joker({
     key = "kulou",
-    loc_txt = {name = "Kulou", text = {"For each destroyed card or sold/destroyed", "Joker/consumable, gain {X:mult,C:white}X#2#{} Mult", "{C:inactive}Currently gives {X:mult,C:white}X#1#{} Mult{}"}},
-    atlas = "jokers", pos = {x = 0, y = 9}, rarity = 4, cost = 25,
-    discovered = true, unlocked = true, blueprint_compat = false,
-    config = {extra = {xmult = 1, gain = 0.1}},
-    loc_vars = function(self, info_queue, card) return {vars = {card.ability.extra.xmult, card.ability.extra.gain}} end,
-    add_to_deck = function(self, card, from_debuff) card.ability.fb_kulou_tracking = true end,
+    loc_txt = {
+        name = "Kulou",
+        text = {
+            "For each destroyed, sold, or discarded",
+            "card/Joker/consumable, gain {X:mult,C:white}X#2#{} Mult",
+            "{C:inactive}Currently gives {X:mult,C:white}X#1#{} Mult{}"
+        }
+    },
+    atlas = "jokers",
+    pos = {x = 0, y = 9},
+    rarity = 4,
+    cost = 25,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {
+            xmult = 1,
+            gain = 0.1
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.xmult,
+                card.ability.extra.gain
+            }
+        }
+    end,
+
     calculate = function(self, card, context)
-        if context.destroy_card or context.selling_card or context.remove_playing_cards then card.ability.extra.xmult = (card.ability.extra.xmult or 1) + (card.ability.extra.gain or 0.1) end
-        if FB.is_scoring_joker_main(context) then return {x_mult = card.ability.extra.xmult or 1, card = card} end
+        local extra = card.ability.extra
+
+        local function kulou_gain(amount)
+            amount = amount or 1
+            extra.xmult = (extra.xmult or 1) + ((extra.gain or 0.1) * amount)
+
+            return {
+                message = "X" .. extra.xmult,
+                colour = G.C.MULT,
+                card = card
+            }
+        end
+
+        -- Destroyed card / sold card
+        if context.destroy_card or context.selling_card then
+            return kulou_gain(1)
+        end
+
+        -- Multiple removed playing cards
+        if context.remove_playing_cards then
+            local count = context.removed and #context.removed or 1
+            return kulou_gain(count)
+        end
+
+        -- Normal discard button: usually fires once per discarded card
+        if context.discard and context.other_card and not context.blueprint then
+            return kulou_gain(1)
+        end
+
+        -- After playing a hand, played cards go to discard
+        if context.after and context.full_hand and not context.blueprint then
+            return kulou_gain(#context.full_hand)
+        end
+
+        if FB.is_scoring_joker_main(context) then
+            return {
+                x_mult = extra.xmult or 1,
+                card = card
+            }
+        end
     end
 })
 
@@ -601,7 +687,7 @@ SMODS.Joker({
     discovered = true, unlocked = true, blueprint_compat = false,
     config = {extra = {repetitions = 1}},
     calculate = function(self, card, context)
-        if FB.is_safe_joker_retrigger_context(context)
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards
             and FB.is_joker_key(context.other_card, 'chugou')
             and FB.once_joker_retrigger(card, context, 'shanque') then
             return {repetitions = card.ability.extra.repetitions or 1, card = card}
@@ -804,7 +890,7 @@ SMODS.Joker({
         name = "Tubaoshu",
         text = {
             "Fill all your joker slots with Cintamanis",
-            "every round. {C:attention}+#1#{} joker slot.",
+            "every round. {C:attention}+#1#{} joker slots",
         }
     },
 
@@ -883,7 +969,9 @@ SMODS.Joker({
 
     calculate = function(self, card, context)
         if context.mod_probability then
-            return {numerator = context.denominator}
+            return {
+                numerator = context.denominator
+            }
         end
     end
 })
@@ -953,7 +1041,7 @@ SMODS.Joker({
     blueprint_compat = false,
 
     calculate = function(self, card, context)
-        if FB.is_safe_joker_retrigger_context(context) and context.other_card ~= card and FB.once_joker_retrigger(card, context, 'zhanhu') then return {repetitions = 1, card = card} end
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and context.other_card ~= card and FB.once_joker_retrigger(card, context, 'zhanhu') then return {repetitions = 1, card = card} end
     end
 })
 

@@ -58,9 +58,9 @@ Compatibility with other mods is still experimental and may improve over time
 3. Launch the game
 
 ## Current State
-Current version: `0.0.1-alpha`
+Current version: `0.0.2-alpha`
 This is an early alpha release.
-Expect lots of:
+Expect:
 * placeholder art
 * unfinished content
 * balance issues
@@ -68,11 +68,11 @@ Expect lots of:
 * crashes
 * visual inconsistencies
 
-`0.0.1-alpha` fixed a multitude of bugs, added more suitable placeholder art, fixed many crashes and some incompatibilities, and a rework for many jokers.
+`0.0.2-alpha` fixed a multitude of bugs, fixed more crashes and some incompatibilities, and a rework for some jokers. It also fixed a devastating performance bug
 
 ## Next Planned Update
 
-`0.1.0-alpha` will be the next update if no additional patches are required. This update will add Boss Blinds all with unique interactions and challenges!
+`0.1.0-alpha` will be the next update if no additional patches are required. This update will add unique challenges! Boss blinds will be added in a future update
 
 ## Artists Wanted
 Pixel artists and artists are welcome! DM me (zinaida7224) on Discord if you want to help out with the art!

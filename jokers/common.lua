@@ -125,26 +125,67 @@ SMODS.Joker({
     discovered = true,
     unlocked = true,
     blueprint_compat = true,
-    config = {extra = {fb_loc_vars = {"1", "5"}}},
 
-    loc_vars = function(self, info_queue, card) return FB.static_loc_vars(card) end,
+    config = {
+        extra = {
+            odds_num = 1,
+            odds_den = 5,
+            repetitions = 1
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.odds_num,
+                card.ability.extra.odds_den
+            }
+        }
+    end,
 
     calculate = function(self, card, context)
-        if FB.is_card_repetition(context) and (context.cardarea == G.play or context.cardarea == G.hand) then
-            if FB.num(pseudorandom('bulletcomment_card'), 0) < 0.2 then
+        local extra = card.ability.extra
+
+        if FB.is_card_repetition(context)
+            and (context.cardarea == G.play or context.cardarea == G.hand) then
+
+            if FB.roll(
+                'bulletcomment_card',
+                extra.odds_num or 1,
+                extra.odds_den or 5
+            ) then
                 return {
                     message = localize('k_again_ex'),
-                    repetitions = 1,
+                    repetitions = extra.repetitions or 1,
                     card = card
                 }
             end
         end
 
-        if FB.is_safe_joker_retrigger_context(context)
+        if context
+            and context.retrigger_joker_check
+            and context.other_card
+            and not context.end_of_round
+            and not context.setting_blind
+            and not context.before
+            and not context.after
+            and not context.selling_card
+            and not context.selling_self
+            and not context.destroy_card
+            and not context.remove_playing_cards
             and context.other_card ~= card
             and FB.once_joker_retrigger(card, context, 'bullet_comment') then
-            if FB.num(pseudorandom('bulletcomment_joker'), 0) < 0.2 then
-                return {message = localize('k_again_ex'), repetitions = 1, card = card}
+
+            if FB.roll(
+                'bulletcomment_joker',
+                extra.odds_num or 1,
+                extra.odds_den or 5
+            ) then
+                return {
+                    message = localize('k_again_ex'),
+                    repetitions = extra.repetitions or 1,
+                    card = card
+                }
             end
         end
     end
@@ -432,7 +473,7 @@ SMODS.Joker({
         text = {
             "For the next {C:attention}#1#{} hands, {C:attention}retrigger{} all cards",
             "played and held in hand.",
-            "{C:green}1 in 2{} chance that the hand does not score.",
+            "{C:green}#2# in #3#{} chance that the hand does not score.",
             "{C:inactive}Hands remaining: #1#{}"
         }
     },
@@ -447,25 +488,50 @@ SMODS.Joker({
     unlocked = true,
     blueprint_compat = false,
 
-    config = {extra = {hands = 8, failed = false}},
+    config = {
+        extra = {
+            hands = 8,
+            failed = false,
+            odds_num = 1,
+            odds_den = 2,
+            repetitions = 1,
+            fuzai_repetitions = 3
+        }
+    },
 
     loc_vars = function(self, info_queue, card)
-        return {vars = {card.ability.extra.hands}}
+        return {
+            vars = {
+                card.ability.extra.hands,
+                card.ability.extra.odds_num,
+                card.ability.extra.odds_den
+            }
+        }
     end,
 
     calculate = function(self, card, context)
+        local extra = card.ability.extra
+
         -- FIRST: roll before the hand starts scoring so the player sees the failure immediately.
-        if context.before and not context.blueprint and card.ability.extra.hands > 0 then
-            local fail_chance = 0.5
+        if context.before and not context.blueprint and (extra.hands or 0) > 0 then
+            local odds_num = extra.odds_num or 1
+            local odds_den = extra.odds_den or 2
+
             if FB.has_joker('bajin') then
-                fail_chance = math.min(1, fail_chance * 2)
-            end
-            if FB.has_joker('fuku_fuzai') then
-                fail_chance = 0
+                odds_num = odds_num * 2
             end
 
-            card.ability.extra.failed = FB.num(pseudorandom('foraged_mushrooms_fail'), 0) < fail_chance
-            if card.ability.extra.failed then
+            if FB.has_joker('fuku_fuzai') then
+                odds_num = 0
+            end
+
+            extra.failed = FB.roll(
+                'foraged_mushrooms_fail',
+                odds_num,
+                odds_den
+            )
+
+            if extra.failed then
                 return {
                     message = "Spoiled!",
                     colour = G.C.RED,
@@ -481,30 +547,37 @@ SMODS.Joker({
         end
 
         -- DURING CARD SCORING: retrigger played/held cards while active.
-        if FB.is_card_repetition(context) and (context.cardarea == G.play or context.cardarea == G.hand) and card.ability.extra.hands > 0 then
+        if FB.is_card_repetition(context)
+            and (context.cardarea == G.play or context.cardarea == G.hand)
+            and (extra.hands or 0) > 0 then
             return {
                 message = localize('k_again_ex'),
-                repetitions = FB.has_joker('fuku_fuzai') and 3 or 1,
+                repetitions = FB.has_joker('fuku_fuzai')
+                    and (extra.fuzai_repetitions or 3)
+                    or (extra.repetitions or 1),
                 card = card
             }
         end
 
         -- LAST SCORING MODIFIER: cancel the hand score after all normal scoring math is known.
-        if FB.is_scoring_joker_main(context) and card.ability.extra.hands > 0 and card.ability.extra.failed then
+        if FB.is_scoring_joker_main(context)
+            and (extra.hands or 0) > 0
+            and extra.failed then
             return FB.no_score_return(card, "No Score!")
         end
 
         -- AFTER HAND: count down exactly once per played hand.
-        if context.after and not context.blueprint and card.ability.extra.hands > 0 then
-            card.ability.extra.hands = card.ability.extra.hands - 1
-            card.ability.extra.failed = false
-            if card.ability.extra.hands <= 0 then
+        if context.after and not context.blueprint and (extra.hands or 0) > 0 then
+            extra.hands = extra.hands - 1
+            extra.failed = false
+
+            if extra.hands <= 0 then
                 FB.queue_self_destroy(card)
                 FB.resolve_or_defer_queued_actions(context)
                 return {message = "Gone!", colour = G.C.RED, card = card}
             else
                 return {
-                    message = card.ability.extra.hands .. " left",
+                    message = extra.hands .. " left",
                     colour = G.C.ATTENTION,
                     card = card
                 }
@@ -595,14 +668,33 @@ SMODS.Joker({
     config = {extra = {uses = 3, repetitions = 1}},
     loc_vars = function(self, info_queue, card) return {vars = {card.ability.extra.uses, card.ability.extra.repetitions}} end,
     calculate = function(self, card, context)
-        if context.before and not context.blueprint then card.ability.fb_cumin_seen = {} end
-        if FB.is_safe_joker_retrigger_context(context)
+        if context.before and not context.blueprint then
+            card.ability.fb_cumin_seen = {}
+        end
+
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards
             and context.other_card ~= card
             and FB.is_food_joker(context.other_card)
             and (card.ability.extra.uses or 0) > 0 then
+
+            local seen_key = nil
+            if context.other_card.config and context.other_card.config.center and context.other_card.config.center.key then
+                seen_key = context.other_card.config.center.key
+            elseif context.other_card.ability and context.other_card.ability.name then
+                seen_key = tostring(context.other_card.ability.name)
+            else
+                seen_key = 'unknown_food_joker'
+            end
+
             card.ability.fb_cumin_seen = card.ability.fb_cumin_seen or {}
-            if not card.ability.fb_cumin_seen[context.other_card] then
-                card.ability.fb_cumin_seen[context.other_card] = true
+
+            local key = context.other_card.config
+                and context.other_card.config.center
+                and context.other_card.config.center.key
+                or "unknown_food_joker"
+
+            if not card.ability.fb_cumin_seen[key] then
+                card.ability.fb_cumin_seen[key] = true
                 return {repetitions = card.ability.extra.repetitions or 1, card = card}
             end
         end
@@ -678,88 +770,57 @@ SMODS.Joker({
     end
 })
 
-SMODS.Joker({
-    key = "knockout",
 
+
+SMODS.Joker {
+    key = 'lakeside_pond',
     loc_txt = {
-        name = "Knockout!",
+        name = 'Lakeside Pond',
         text = {
-            "Gain {X:mult,C:white}X#3#{} Mult at end of round.",
-            "The gain increases by {X:mult,C:white}X#3#{}",
-            "at end of round.",
-            "Skipping a blind resets this Joker.",
-            "{C:inactive}Currently {X:mult,C:white}X#1#{} Mult, gain X#2#{}"
+            'Played cards that do not score',
+            'add {C:chips}+#1#{} Chips and {C:mult}+#2#{} Mult each'
         }
     },
-
-    atlas = "jokers",
-    pos = {x = 7, y = 1},
-
+    config = {
+        extra = {
+            chips = 10,
+            mult = 2
+        }
+    },
     rarity = 1,
-    cost = 4,
-
-    discovered = true,
-    unlocked = true,
-    blueprint_compat = false,
-
-    config = {extra = {xmult = 1, gain = 0.1, gain_increment = 0.1, reset_xmult = 1, reset_gain = 0.1}},
+    cost = 5,
+    atlas = 'jokers',
+    pos = { x = 0, y = 0 },
 
     loc_vars = function(self, info_queue, card)
-        return {vars = {
-            card.ability.extra.xmult or 1,
-            card.ability.extra.gain or 0.1,
-            card.ability.extra.gain_increment or 0.1
-        }}
+        local extra = card.ability.extra
+        return {
+            vars = {
+                extra.chips,
+                extra.mult
+            }
+        }
     end,
 
     calculate = function(self, card, context)
-        if FB.is_scoring_joker_main(context) then
-            return {x_mult = card.ability.extra.xmult or 1, card = card}
-        end
+        if context.joker_main then
+            local played = context.full_hand and #context.full_hand or 0
+            local scored = context.scoring_hand and #context.scoring_hand or 0
+            local unscored = math.max(played - scored, 0)
 
-        -- Only increments at true end of round, once and once only.
-        if FB.main_end_of_round_once(card, context, 'fb_knockout_incremented') then
-            card.ability.extra.xmult = (card.ability.extra.xmult or 1) + (card.ability.extra.gain or 0.1)
-            card.ability.extra.gain = (card.ability.extra.gain or 0.1) + (card.ability.extra.gain_increment or 0.1)
-        end
+            local extra = card.ability.extra
+            local bonus_chips = extra.chips * unscored
+            local bonus_mult = extra.mult * unscored
 
-        if context.skip_blind and not context.blueprint then
-            card.ability.extra.xmult = card.ability.extra.reset_xmult or 1
-            card.ability.extra.gain = card.ability.extra.reset_gain or 0.1
-            card.ability.fb_knockout_incremented = false
-        end
-    end
-})
-
-SMODS.Joker({
-    key = "lakeside_pond",
-    loc_txt = {
-        name = "Lakeside Pond",
-        text = {
-            "Each played but unscored card gives",
-            "{C:chips}+#1#{} Chips or {C:mult}+#2#{} Mult"
-        }
-    },
-    atlas = "jokers", pos = {x = 8, y = 1}, rarity = 1, cost = 5,
-    discovered = true, unlocked = true, blueprint_compat = true,
-    config = {extra = {chips = 20, mult = 4}},
-    loc_vars = function(self, info_queue, card) return {vars = {card.ability.extra.chips, card.ability.extra.mult}} end,
-    calculate = function(self, card, context)
-        if context.individual and context.cardarea == G.play and context.other_card and not context.other_card.debuff then
-            local scored = false
-            for _, c in ipairs(context.scoring_hand or {}) do
-                if c == context.other_card then scored = true; break end
-            end
-            if not scored then
-                if FB.roll('lakeside_pond', 1, 2) then
-                    return {chips = card.ability.extra.chips or 20, card = context.other_card}
-                else
-                    return {mult = card.ability.extra.mult or 4, card = context.other_card}
-                end
+            if unscored > 0 then
+                return {
+                    chips = bonus_chips,
+                    mult = bonus_mult
+                }
             end
         end
     end
-})
+}
 
 SMODS.Joker({
     key = "laurel_branch",
@@ -791,7 +852,7 @@ SMODS.Joker({
             return {repetitions = 1, card = card}
         end
 
-        if FB.is_safe_joker_retrigger_context(context)
+        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards
             and context.other_card ~= card
             and FB.once_joker_retrigger(card, context, 'laurel_branch') then
             return {repetitions = 1, card = card}
@@ -808,7 +869,7 @@ SMODS.Joker({
     loc_txt = {
         name = "Mini Theater",
         text = {
-            "If your first hand has {C:attention}1{} played card,",
+            "If your first hand has {C:attention}#1#{} played card,",
             "apply a random enhancement, seal, or edition"
         }
     },
@@ -820,16 +881,23 @@ SMODS.Joker({
         if context.setting_blind and not context.blueprint then
             card.ability.fb_theater_used = false
         end
+
         if context.before
             and not context.blueprint
             and not card.ability.fb_theater_used
             and G.play and G.play.cards
             and #G.play.cards == (card.ability.extra.required_cards or 1) then
+
             card.ability.fb_theater_used = true
+
             local target = G.play.cards[1]
-            if FB.apply_random_card_modifier(target, 'mini_theater') then
-                return {message = "Scene!", colour = G.C.ATTENTION, card = target}
-            end
+            FB.apply_random_card_modifier(target, 'mini_theater')
+
+            return {
+                message = "Scene!",
+                colour = G.C.ATTENTION,
+                card = target
+            }
         end
     end
 })
@@ -868,23 +936,175 @@ SMODS.Joker({
 
 SMODS.Joker({
     key = "mortal_realm",
-    loc_txt = {name = "Mortal Realm", text = {"A place where everyone can live", "{C:red}-#1#{} Joker slot", "{C:red}-#2#{} consumable slot", "{C:red}-#3#{} hand size"}},
-    atlas = "jokers", pos = {x = 2, y = 2}, rarity = 1, cost = 5,
-    discovered = true, unlocked = true, blueprint_compat = false,
-    config = {extra = {joker_loss = 1, consumable_loss = 1, hand_loss = 1}},
-    loc_vars = function(self, info_queue, card) return {vars = {card.ability.extra.joker_loss, card.ability.extra.consumable_loss, card.ability.extra.hand_loss}} end,
+
+    loc_txt = {
+        name = "Mortal Realm",
+        text = {
+            "#1#",
+            "#2#",
+            "{C:consumable}#3#{}",
+            "{C:attention}#4#{}",
+            "{C:attention}#5#{}"
+        }
+    },
+
+    atlas = "jokers",
+    pos = {x = 0, y = 0},
+
+    rarity = 3,
+    cost = 8,
+
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {
+            sold_joker_name = nil,
+            realm_state = "shop",
+            joker_slots = -1,
+            consumable_slots = -1,
+            hand_size = -1
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        local extra = card.ability.extra
+
+        if extra.realm_state == "no_target" then
+            return {
+                vars = {
+                    "This motherfucker sold your...",
+                    "oh wait, nevermind",
+                    "-1 consumable slot",
+                    "-1 Joker slot",
+                    "-1 hand size"
+                }
+            }
+        end
+
+        if extra.realm_state == "sold_mortal_realm" then
+            return {
+                vars = {
+                    "This motherfucker sold your Mortal Realm!?",
+                    "HOW???",
+                    "+1 consumable slot",
+                    "+1 Joker slot",
+                    "+1 hand size"
+                }
+            }
+        end
+
+        if extra.sold_joker_name then
+            return {
+                vars = {
+                    "This motherfucker sold your " .. extra.sold_joker_name,
+                    "just so it can be a permanent pain in your ass",
+                    "-1 consumable slot",
+                    "-1 Joker slot",
+                    "-1 hand size"
+                }
+            }
+        end
+
+        return {
+            vars = {
+                "A place where everyone lives",
+                "It's a beautiful day outside,",
+                "birds are singing, flowers are blooming,",
+                "on days like these,",
+                "you should be taking your time enjoying it"
+            }
+        }
+    end,
+
     add_to_deck = function(self, card, from_debuff)
-        FB.safe_change_joker_slots(-(card.ability.extra.joker_loss or 1))
-        if G.consumeables and G.consumeables.config then G.consumeables.config.card_limit = G.consumeables.config.card_limit - (card.ability.extra.consumable_loss or 1) end
-        FB.safe_change_hand_size(-(card.ability.extra.hand_loss or 1))
+        local extra = card.ability.extra
+
+        -- Apply default curse first.
+        G.jokers.config.card_limit = G.jokers.config.card_limit + (extra.joker_slots or -1)
+        G.consumeables.config.card_limit = G.consumeables.config.card_limit + (extra.consumable_slots or -1)
+        G.hand:change_size(extra.hand_size or -1)
+
+        card_eval_status_text(card, 'extra', nil, nil, nil, {
+            message = "Whoops!",
+            colour = G.C.RED
+        })
+
+        local target = nil
+
+        if G.jokers and G.jokers.cards then
+            for _, other_joker in ipairs(G.jokers.cards) do
+                if other_joker ~= card then
+                    target = other_joker
+                    break
+                end
+            end
+        end
+
+        if not target then
+            extra.realm_state = "no_target"
+            extra.sold_joker_name = nil
+            return
+        end
+
+        local sold_key = target.config
+            and target.config.center
+            and target.config.center.key
+
+        local sold_name = "Joker"
+
+        if sold_key then
+            sold_name = localize({
+                type = "name_text",
+                set = "Joker",
+                key = sold_key
+            }) or sold_key
+        elseif target.ability and target.ability.name then
+            sold_name = target.ability.name
+        end
+
+        extra.sold_joker_name = sold_name
+
+        if sold_key == "mortal_realm" or sold_key == "j_fb_mortal_realm" then
+            extra.realm_state = "sold_mortal_realm"
+            extra.sold_joker_name = "Mortal Realm"
+
+            -- It already applied -1/-1/-1 above.
+            -- Add +2 to each so the final owned effect becomes +1/+1/+1.
+            G.jokers.config.card_limit = G.jokers.config.card_limit + 2
+            G.consumeables.config.card_limit = G.consumeables.config.card_limit + 2
+            G.hand:change_size(2)
+
+            extra.joker_slots = 1
+            extra.consumable_slots = 1
+            extra.hand_size = 1
+        else
+            extra.realm_state = "sold_normal"
+
+            if card.set_eternal then
+                card:set_eternal(true)
+            else
+                card.ability.eternal = true
+            end
+        end
+
+        G.E_MANAGER:add_event(Event({
+            func = function()
+                if target and not target.removed then
+                    target:start_dissolve()
+                end
+                return true
+            end
+        }))
     end,
+
     remove_from_deck = function(self, card, from_debuff)
-        FB.safe_change_joker_slots(card.ability.extra.joker_loss or 1)
-        if G.consumeables and G.consumeables.config then G.consumeables.config.card_limit = G.consumeables.config.card_limit + (card.ability.extra.consumable_loss or 1) end
-        FB.safe_change_hand_size(card.ability.extra.hand_loss or 1)
-    end,
-    calculate = function(self, card, context)
-        if context.buying_card and not context.blueprint then return {message = "This motherfucker sold your Joker just so it can be a permanent pain in your ass", colour = G.C.RED, card = card} end
+        local extra = card.ability.extra
+
+        G.jokers.config.card_limit = G.jokers.config.card_limit - (extra.joker_slots or -1)
+        G.consumeables.config.card_limit = G.consumeables.config.card_limit - (extra.consumable_slots or -1)
+        G.hand:change_size(-(extra.hand_size or -1))
     end
 })
 
@@ -1139,10 +1359,23 @@ SMODS.Joker({
     discovered = true,
     unlocked = true,
     blueprint_compat = false,
-    config = {extra = {fb_loc_vars = {"233", "1", "4"}}},
+    config = {
+        extra = {
+            chips = 233,
+            odds_num = 1,
+            odds_den = 4
+        }
+    },
 
-    loc_vars = function(self, info_queue, card) return FB.static_loc_vars(card) end,
-
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.chips,
+                card.ability.extra.odds_num,
+                card.ability.extra.odds_den
+            }
+        }
+    end,
 
     calculate = function(self, card, context)
         if context.before and G.play and G.play.cards and #G.play.cards > 0 and not context.blueprint then
@@ -1150,10 +1383,12 @@ SMODS.Joker({
         end
 
         if FB.is_scoring_joker_main(context) then
-            return {chips = 233}
+            return {chips = card.ability.extra.chips or 233}
         end
 
-        if context.setting_blind and not context.blueprint and FB.num(pseudorandom('tilecat_self'), 0) < 0.25 then
+        if context.setting_blind
+            and not context.blueprint
+            and FB.roll('tilecat_self', card.ability.extra.odds_num or 1, card.ability.extra.odds_den or 4) then
             FB.set_permanent_debuff(card)
             return {message = 'Debuffed!'}
         end
@@ -1182,12 +1417,17 @@ SMODS.Joker({
 
     calculate = function(self, card, context)
         if context.before and not context.blueprint and G.play and G.play.cards and #G.play.cards > 0 then
-            card.ability.fb_target_card = pseudorandom_element(G.play.cards, pseudoseed('tulou'))
+            card.ability.fb_target_card_index = pseudorandom('tulou', 1, #G.play.cards)
             return {message = "Marked", colour = G.C.RED, card = card}
         end
-        if context.destroy_card and context.cardarea == G.play and context.destroy_card == card.ability.fb_target_card then
-            card.ability.fb_target_card = nil
-            return {remove = true}
+
+        if context.destroy_card and context.cardarea == G.play then
+            local target = G.play and G.play.cards and G.play.cards[card.ability.fb_target_card_index or -1]
+
+            if context.destroy_card == target then
+                card.ability.fb_target_card_index = nil
+                return {remove = true}
+            end
         end
     end
 })

@@ -274,7 +274,6 @@ FB.joker_keys = {
     "chicken_mushroom_stew",
     "demolition_notice",
     "do_not_imitate",
-    "eating_melons",
     "feirenzai_manga",
     "followers_request",
     "gold_sculpture",
@@ -311,6 +310,8 @@ FB.joker_keys = {
     "one_way_ticket_to_heaven",
     "pixiu_horn",
     "underworld",
+    "baby_tianlu",
+    "baby_bixie",
     "bajin",
     "bilibili",
     "bibi",
@@ -380,6 +381,8 @@ FB.food_joker_keys = FB.food_joker_keys or {
 }
 
 FB.beast_joker_keys = FB.beast_joker_keys or {
+    baby_tianlu = true,
+    baby_bixie = true,
     bajin = true,
     bibi = true,
     bixie = true,
@@ -847,6 +850,69 @@ FB.roll = FB.roll or function(seed, numerator, denominator)
     return FB.num(pseudorandom(seed or 'fb_roll'), 0) < (numerator / denominator)
 end
 
+FB.random_enhancement_key = FB.random_enhancement_key or function(seed)
+    return pseudorandom_element({
+        'm_bonus',
+        'm_mult',
+        'm_wild',
+        'm_glass',
+        'm_steel',
+        'm_stone',
+        'm_gold',
+        'm_lucky'
+    }, pseudoseed(seed or 'fb_random_enhancement'))
+end
+
+FB.random_seal = FB.random_seal or function(seed)
+    return pseudorandom_element({
+        'Gold',
+        'Blue',
+        'Red',
+        'Purple'
+    }, pseudoseed(seed or 'fb_random_seal'))
+end
+
+FB.random_edition = FB.random_edition or function(seed)
+    return pseudorandom_element({
+        {foil = true},
+        {holo = true},
+        {polychrome = true}
+    }, pseudoseed(seed or 'fb_random_edition'))
+end
+
+FB.apply_random_card_modifier = FB.apply_random_card_modifier or function(card, seed)
+    if not card then return nil end
+    seed = seed or 'fb_random_card_modifier'
+
+    local modifier_type = pseudorandom_element({
+        'enhancement',
+        'seal',
+        'edition'
+    }, pseudoseed(seed .. '_type'))
+
+    if modifier_type == 'enhancement' then
+        local enhancement_key = FB.random_enhancement_key(seed .. '_enhancement')
+        if enhancement_key and G and G.P_CENTERS and G.P_CENTERS[enhancement_key] then
+            card:set_ability(G.P_CENTERS[enhancement_key], nil, true)
+            return 'enhancement'
+        end
+    elseif modifier_type == 'seal' then
+        local seal = FB.random_seal(seed .. '_seal')
+        if seal then
+            card:set_seal(seal, true)
+            return 'seal'
+        end
+    elseif modifier_type == 'edition' then
+        local edition = FB.random_edition(seed .. '_edition')
+        if edition then
+            card:set_edition(edition, true)
+            return 'edition'
+        end
+    end
+
+    return nil
+end
+
 FB.is_enhanced_card = FB.is_enhanced_card or function(card)
     return card
         and card.ability
@@ -966,56 +1032,105 @@ FB.is_card_repetition = FB.is_card_repetition or function(context)
 end
 
 -- Fast retrigger helpers.
--- IMPORTANT:
--- context.retrigger_joker_check is only an eligibility pass, so this helper must stay cheap.
--- Do not scan all Jokers/cards here. Do not write state onto the target Joker.
-FB.is_safe_joker_retrigger_context = function(context)
-    return context
-        and context.retrigger_joker_check
-        and context.other_card
-        and not context.end_of_round
-        and not context.setting_blind
-        and not context.before
-        and not context.after
-        and not context.selling_card
-        and not context.selling_self
-        and not context.destroy_card
-        and not context.remove_playing_cards
+-- Keep the retrigger gate inline to avoid the extra helper call overhead in scoring paths.
+FB.has_retrigger_effect = function(card)
+    if not card then return false end
+
+    local center = card.config and card.config.center or {}
+    local ability = type(card.ability) == 'table' and card.ability or {}
+    local extra = type(ability.extra) == 'table' and ability.extra or {}
+
+    -- Explicit mod/custom flags
+    if center.retrigger or center.retriggered or center.retrigger_count then return true end
+    if ability.retrigger or ability.retriggered or ability.retrigger_count then return true end
+    if extra.retrigger or extra.retriggered or extra.retrigger_count then return true end
+
+    -- Steamodded-style retrigger compatibility hints
+    if center.calculate and type(center.calculate) == 'function' then
+        local key = center.key or ""
+        local name = center.name or ""
+
+        -- Fallback name/key scan for external mod jokers
+        key = tostring(key):lower()
+        name = tostring(name):lower()
+
+        if key:find("retrigger")
+            or key:find("repeat")
+            or key:find("again")
+            or name:find("retrigger")
+            or name:find("repeat")
+            or name:find("again") then
+            return true
+        end
+    end
+
+    return false
 end
 
 FB.current_retrigger_id = function()
     local game = G and G.GAME or {}
+    local blind = game.blind or {}
     local resets = game.round_resets or {}
-    -- Cheap hand-level ID; avoids table.concat and large dynamic IDs during retrigger checks.
-    return tostring(resets.ante or 0) .. ':' .. tostring(game.hands_played or 0)
+    return table.concat({
+        tostring(game.round or 0),
+        tostring(resets.ante or 0),
+        tostring(blind.name or blind.key or ''),
+        tostring(game.hands_played or 0),
+        tostring(game.skips or 0)
+    }, '|')
 end
+
+-- Runtime-only retrigger cache.
+-- IMPORTANT: Do not store card objects or retrigger cache tables inside card.ability.
+-- Balatro serializes card.ability; storing card objects there can create table cycles.
+FB.fb_rt_seen_temp = FB.fb_rt_seen_temp or {}
+FB.fb_rt_seen_hand = FB.fb_rt_seen_hand or nil
 
 FB.once_joker_retrigger = function(source, context, tag)
-    if not FB.is_safe_joker_retrigger_context(context) then return false end
+    if not context or not context.retrigger_joker_check then return false end
     if not source or not context.other_card or context.other_card == source then return false end
+    if context.end_of_round or context.setting_blind or context.before or context.after then return false end
+    if context.selling_card or context.selling_self or context.destroy_card or context.remove_playing_cards then return false end
 
-    source.ability = source.ability or {}
-    source.ability.fb_rt_seen = source.ability.fb_rt_seen or {}
+    -- Purge old bad saved data from earlier helper versions.
+    if source.ability then
+        source.ability.fb_rt_seen = nil
+        source.ability.fb_rt_hand = nil
+    end
 
-    local target_key = FB.get_center_key(context.other_card) or tostring(context.other_card)
-    local token = tostring(tag or FB.get_center_key(source) or 'fb') .. '>' .. tostring(target_key)
-    local id = FB.current_retrigger_id()
+    if context.other_card.ability then
+        context.other_card.ability.fb_rt_seen = nil
+        context.other_card.ability.fb_rt_hand = nil
+    end
 
-    if source.ability.fb_rt_seen[token] == id then return false end
-    source.ability.fb_rt_seen[token] = id
+    local hand_id = FB.current_retrigger_id()
+
+    if FB.fb_rt_seen_hand ~= hand_id then
+        FB.fb_rt_seen_hand = hand_id
+        FB.fb_rt_seen_temp = {}
+    end
+
+    local source_id =
+        source.sort_id
+        or source.ID
+        or FB.get_center_key(source)
+        or "source"
+
+    local target_id =
+        context.other_card.sort_id
+        or context.other_card.ID
+        or FB.get_center_key(context.other_card)
+        or "target"
+
+    local token =
+        tostring(tag or "rt") ..
+        ":" .. tostring(source_id) ..
+        ">" .. tostring(target_id)
+
+    if FB.fb_rt_seen_temp[token] then return false end
+    FB.fb_rt_seen_temp[token] = true
     return true
 end
-
-FB.silent_score = FB.silent_score or function(ret)
-    if type(ret) == 'table' then
-        if ret.chips or ret.mult or ret.x_mult or ret.x_chips or ret.e_mult or ret.e_chips or ret.ee_mult or ret.ee_chips or ret.eee_mult or ret.eee_chips then
-            ret.message = nil
-            ret.colour = ret.colour
-        end
-    end
-    return ret
-end
-
 
 -- =========================================================
 -- Fabulous Beasts final release-candidate helpers
@@ -1053,10 +1168,6 @@ FB.card_unique_signature = function(card)
     local perma_bonus = card.ability and card.ability.perma_bonus or 0
     local perma_mult = card.ability and card.ability.perma_mult or 0
     return table.concat({rank, suit, tostring(ability), tostring(seal), tostring(edition), tostring(perma_bonus), tostring(perma_mult)}, '|')
-end
-
-FB.is_enhanced_card = function(card)
-    return card and card.ability and card.ability.name and card.ability.name ~= 'Default Base'
 end
 
 FB.card_mod_count = function(card)
@@ -1146,16 +1257,6 @@ FB.hand_contains_number = function(num)
     return FB.hand_contains_rank(tostring(num))
 end
 
-FB.card_cash_value = function(card, edition_mult, mod_bonus)
-    if not card then return 0 end
-    edition_mult = FB.num(edition_mult, 2); mod_bonus = FB.num(mod_bonus, 5)
-    local v = FB.num(card.get_chip_bonus and card:get_chip_bonus(), 0)
-    if card.edition then v = v * edition_mult end
-    if FB.is_enhanced_card(card) then v = v + mod_bonus end
-    if card.seal then v = v + mod_bonus end
-    return math.floor(math.max(0, v))
-end
-
 FB.sold_destroyed_penalty = function(amount)
     if not (G and G.jokers and G.jokers.cards) then return end
     for _, j in ipairs(G.jokers.cards) do
@@ -1174,49 +1275,3 @@ FB.safe_no_effect = function(ret)
     return ret
 end
 
--- Wrap future Joker registration callbacks. This prevents SMODS next(nil) crashes during evaluate_play.
-if SMODS and SMODS.Joker and not FB.final_joker_wrapper_installed then
-    FB.final_joker_wrapper_installed = true
-    local old_joker = SMODS.Joker
-    SMODS.Joker = function(def)
-        if type(def) == 'table' then
-            local old_calc = def.calculate
-            def.calculate = function(self, card, context)
-                FB.ensure_extra(card)
-                if type(old_calc) == 'function' then
-                    local ok, ret = pcall(old_calc, self, card, context or {})
-                    if ok then return FB.safe_no_effect(FB.silent_score(ret)) end
-                    print('[Fabulous Beasts] calculate error in ' .. tostring(def.key) .. ': ' .. tostring(ret))
-                end
-                return {}
-            end
-            local old_loc = def.loc_vars
-            def.loc_vars = function(self, info_queue, card)
-                FB.ensure_extra(card)
-                if type(old_loc) == 'function' then
-                    local ok, ret = pcall(old_loc, self, info_queue, card)
-                    if ok and type(ret) == 'table' then
-                        ret.vars = ret.vars or {}
-                        return ret
-                    end
-                    if not ok then print('[Fabulous Beasts] loc_vars error in ' .. tostring(def.key) .. ': ' .. tostring(ret)) end
-                end
-                return {vars = {}}
-            end
-            for _, fname in ipairs({'add_to_deck','remove_from_deck','update'}) do
-                local old = def[fname]
-                if type(old) == 'function' then
-                    def[fname] = function(...)
-                        local args = {...}
-                        local card = args[2]
-                        FB.ensure_extra(card)
-                        local ok, ret = pcall(old, ...)
-                        if not ok then print('[Fabulous Beasts] ' .. fname .. ' error in ' .. tostring(def.key) .. ': ' .. tostring(ret)); return nil end
-                        return ret
-                    end
-                end
-            end
-        end
-        return old_joker(def)
-    end
-end
