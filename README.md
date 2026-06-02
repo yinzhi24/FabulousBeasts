@@ -1,6 +1,21 @@
 # Fabulous Beasts
 A Chinese mythology inspired content expansion mod for Balatro. Based on [Fabulous Beasts](https://www.youtube.com/watch?v=GY3jg2heY30) (the manga and anime)
 
+## Current Version
+Current version: `0.1.0-alpha`
+This is an alpha release.
+This version added:
+* 5 unique challenges
+* color coded placeholder art
+* legendary jokers have their names in joker sprites (just the name)
+* boss blinds, 30 to be exact; based on the Chinese zodiacs, heavenly stems, and wuxing (5 elements) + air, all with unique or expanded vanilla mechanics!
+* a bunch of bug and crash fixes involving logic errors and nil/table handling
+* many joker reworks and balances
+* maybe some secrets
+
+## Next Planned Update
+`0.2.0-alpha` will be the next update if no additional patches are required. This update will add vouchers, booster packs, decks and/or sleeves (maybe), and some more challenges!
+
 ## Features
 * 100+ custom Jokers
 * Custom Boss Blinds
@@ -18,7 +33,7 @@ Hidden rarity with unique mechanics and unlock conditions
 ### Divine
 Special rarity reserved for extremely difficult unlocks and hidden content
 
-## Boss Blinds (in development)
+## Boss Blinds
 Includes:
 * Wuxing-inspired blinds
 * Zodiac-themed blinds
@@ -44,6 +59,40 @@ Includes:
 * Vision
 * True Sight
 
+## Screenshots
+
+### Custom Jokers
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-06-01 164104(1).png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 164341(1).png" width="48%">
+</p>
+
+### Custom Boss Blinds
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-06-01 165419(1).png" width="70%">
+</p>
+
+### Custom Challenges
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-06-01 165744.png" width="70%">
+</p>
+
+### Legendary Jokers
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-06-01 165839(1).png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 165848(1).png" width="48%">
+</p>
+
+### Collection
+
+<p align="center">
+  <img src="screenshots/Screenshot 2026-06-01 170215.png" width="70%">
+</p>
+
 ## Compatibility
 Required mods:
 * Steamodded
@@ -56,23 +105,6 @@ Compatibility with other mods is still experimental and may improve over time
 1. Install Steamodded and Lovely Injector
 2. Place the mod folder into the Balatro Mods folder
 3. Launch the game
-
-## Current State
-Current version: `0.0.2-alpha`
-This is an early alpha release.
-Expect:
-* placeholder art
-* unfinished content
-* balance issues
-* bugs
-* crashes
-* visual inconsistencies
-
-`0.0.2-alpha` fixed a multitude of bugs, fixed more crashes and some incompatibilities, and a rework for some jokers. It also fixed a devastating performance bug
-
-## Next Planned Update
-
-`0.1.0-alpha` will be the next update if no additional patches are required. This update will add unique challenges! Boss blinds will be added in a future update
 
 ## Artists Wanted
 Pixel artists and artists are welcome! DM me (zinaida7224) on Discord if you want to help out with the art!

@@ -30,9 +30,13 @@ assert(SMODS.load_file("jokers/rare.lua"))()
 assert(SMODS.load_file("jokers/legendary.lua"))()
 assert(SMODS.load_file("jokers/higher.lua"))()
 
-assert(SMODS.load_file("blinds/wuxing.lua"))()
-assert(SMODS.load_file("blinds/stems.lua"))()
-assert(SMODS.load_file("blinds/zodiacs.lua"))()
+assert(SMODS.load_file("blinds/blinds.lua"))()
 
 assert(SMODS.load_file("vouchers/vouchers.lua"))()
 assert(SMODS.load_file("boosters/boosters.lua"))()
+
+assert(SMODS.load_file("challenges/unlucky.lua"))()
+assert(SMODS.load_file("challenges/growing_up_together.lua"))()
+assert(SMODS.load_file("challenges/eidolon.lua"))()
+assert(SMODS.load_file("challenges/nsfw.lua"))()
+assert(SMODS.load_file("challenges/picnic_day.lua"))()
