@@ -64,14 +64,14 @@ Includes:
 ### Custom Jokers
 
 <p align="center">
-  <img src="screenshots/Screenshot 2026-06-01 164104(1).png" width="48%">
-  <img src="screenshots/Screenshot 2026-06-01 164341(1).png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 164104.png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 164341.png" width="48%">
 </p>
 
 ### Custom Boss Blinds
 
 <p align="center">
-  <img src="screenshots/Screenshot 2026-06-01 165419(1).png" width="70%">
+  <img src="screenshots/Screenshot 2026-06-01 165419.png" width="70%">
 </p>
 
 ### Custom Challenges
@@ -83,8 +83,8 @@ Includes:
 ### Legendary Jokers
 
 <p align="center">
-  <img src="screenshots/Screenshot 2026-06-01 165839(1).png" width="48%">
-  <img src="screenshots/Screenshot 2026-06-01 165848(1).png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 165839.png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 165848.png" width="48%">
 </p>
 
 ### Collection
