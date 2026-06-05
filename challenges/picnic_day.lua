@@ -21,7 +21,8 @@ SMODS.Challenge({
 
     rules = {
         custom = {
-            { id = "no_shop_jokers" }
+            { id = "no_shop_jokers" },
+            FB.challenge_rule("fb_difficulty_1"),
         },
         modifiers = {}
     },

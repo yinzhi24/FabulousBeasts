@@ -2,19 +2,18 @@
 A Chinese mythology inspired content expansion mod for Balatro. Based on [Fabulous Beasts](https://www.youtube.com/watch?v=GY3jg2heY30) (the manga and anime)
 
 ## Current Version
-Current version: `0.1.0-alpha`
+Current version: `0.2.0-alpha`
 This is an alpha release.
 This version added:
-* 5 unique challenges
-* color coded placeholder art
-* legendary jokers have their names in joker sprites (just the name)
-* boss blinds, 30 to be exact; based on the Chinese zodiacs, heavenly stems, and wuxing (5 elements) + air, all with unique or expanded vanilla mechanics!
-* a bunch of bug and crash fixes involving logic errors and nil/table handling
-* many joker reworks and balances
-* maybe some secrets
+* 8 unique vouchers
+* 8 booster packs
+* More challenges
+* Secret interactions!
+* Legendary jokers got a background recolor!
+* The usual bug fixes, reworks, and balance changes
 
 ## Next Planned Update
-`0.2.0-alpha` will be the next update if no additional patches are required. This update will add vouchers, booster packs, decks and/or sleeves (maybe), and some more challenges!
+`0.3.0-alpha` will be the next update if no additional patches are required. This update will add more challenges, custom decks and sleeves, maybe some more jokers, along with bug fixes and improvements
 
 ## Features
 * 100+ custom Jokers
@@ -40,7 +39,7 @@ Includes:
 * Heavenly Stem inspired blinds
 * Special challenge blinds
 
-## Booster Packs (in development)
+## Booster Packs
 Includes:
 * Cuisine Packs
 * Jumbo Cuisine Packs
@@ -48,7 +47,7 @@ Includes:
 * Beast Packs
 * Heavenly Beast Packs
 
-## Vouchers (in development)
+## Vouchers
 Includes:
 * Ancient Treasure
 * Golden Mountain
@@ -64,14 +63,14 @@ Includes:
 ### Custom Jokers
 
 <p align="center">
-  <img src="screenshots/Screenshot 2026-06-01 164104.png" width="48%">
-  <img src="screenshots/Screenshot 2026-06-01 164341.png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 164104(1).png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 164341(1).png" width="48%">
 </p>
 
 ### Custom Boss Blinds
 
 <p align="center">
-  <img src="screenshots/Screenshot 2026-06-01 165419.png" width="70%">
+  <img src="screenshots/Screenshot 2026-06-01 165419(1).png" width="70%">
 </p>
 
 ### Custom Challenges
@@ -83,8 +82,8 @@ Includes:
 ### Legendary Jokers
 
 <p align="center">
-  <img src="screenshots/Screenshot 2026-06-01 165839.png" width="48%">
-  <img src="screenshots/Screenshot 2026-06-01 165848.png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 165839(1).png" width="48%">
+  <img src="screenshots/Screenshot 2026-06-01 165848(1).png" width="48%">
 </p>
 
 ### Collection
@@ -209,6 +208,8 @@ You are completely welcome to support me on my [Ko-fi](https://ko-fi.com/zinaida
 
 ## Credits
 Created by Zinaida
+
+Sprites and art by Emery
 
 Special thanks to:
 * Steamodded developers

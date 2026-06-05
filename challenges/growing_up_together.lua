@@ -1,38 +1,5 @@
 ---@diagnostic disable: undefined-global
 
----@diagnostic disable: undefined-global
-
-local function fb_growing_up_banned_cards()
-    local banned = {}
-
-    local banned_joker_creators = {
-        -- Tarot
-        "c_judgement",
-
-        -- Spectral
-        "c_soul",
-        "c_wraith",
-        "c_ankh",
-        "c_hex",
-
-        -- Joker booster packs
-        "p_buffoon_normal_1",
-        "p_buffoon_normal_2",
-        "p_buffoon_jumbo_1",
-        "p_buffoon_mega_1",
-
-        -- Vouchers that enable Joker-related nonsense
-        "v_blank",
-        "v_antimatter"
-    }
-
-    for _, id in ipairs(banned_joker_creators) do
-        banned[#banned + 1] = { id = id }
-    end
-
-    return banned
-end
-
 SMODS.Challenge({
     key = "growing_up_together",
 
@@ -43,7 +10,8 @@ SMODS.Challenge({
     rules = {
         custom = {
             { id = "no_shop_jokers" },
-            { id = "all_eternal" }
+            { id = "all_eternal" },
+            FB.challenge_rule("fb_difficulty_1")
         },
         modifiers = {
             { id = "joker_slots", value = 2 }
@@ -56,14 +24,47 @@ SMODS.Challenge({
     },
 
     restrictions = {
-        banned_cards = fb_growing_up_banned_cards,
+        banned_cards = {
+            { id = "p_buffoon_normal_1" },
+            { id = "p_buffoon_normal_2" },
+            { id = "p_buffoon_jumbo_1" },
+            { id = "p_buffoon_mega_1" },
+
+            { id = "p_fb_cuisine_pack_1" },
+            { id = "p_fb_cuisine_pack_2" },
+            { id = "p_fb_jumbo_cuisine_pack" },
+            { id = "p_fb_buffet_pack" },
+            { id = "p_fb_beast_pack_1" },
+            { id = "p_fb_beast_pack_2" },
+            { id = "p_fb_heavenly_beast_pack_1" },
+            { id = "p_fb_heavenly_beast_pack_2" },
+
+            { id = "c_judgement" },
+            { id = "c_wraith" },
+            {  id = "c_ectoplasm" },
+            { id = "c_soul" },
+            { id = "c_ankh" },
+            { id = "c_hex" },
+            { id = "c_temperance" },
+
+            { id = "v_hone" },
+            { id = "v_glow_up" },
+            { id = "v_blank" },
+            { id = "v_antimatter" },
+            { id = "v_fb_utensils" },
+            { id = "v_fb_cookware" },
+            { id = "v_fb_ancient_treasure" },
+            { id = "v_fb_golden_mountain" },
+            { id = "v_fb_vision" },
+            { id = "v_fb_true_sight" }
+        },
 
         banned_tags = {
             { id = "tag_uncommon" },
             { id = "tag_rare" },
             { id = "tag_negative" },
             { id = "tag_foil" },
-            { id = "tag_holographic" },
+            { id = "tag_holo" },
             { id = "tag_polychrome" },
             { id = "tag_buffoon" },
             { id = "tag_top_up" }

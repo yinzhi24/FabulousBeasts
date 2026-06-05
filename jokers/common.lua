@@ -722,49 +722,6 @@ SMODS.Joker({
 })
 
 SMODS.Joker({
-    key = "heart_lock",
-    loc_txt = {
-        name = "Heart Lock",
-        text = {
-            "Always {C:eternal}Eternal{}, {C:red}debuffs{} a random joker",
-            "every round."
-        }
-    },
-    atlas = "jokers",
-    pos = {
-        x = 13,
-        y = 0
-    },
-    rarity = 1,
-    cost = 5,
-    discovered = true,
-    unlocked = true,
-    blueprint_compat = false,
-    eternal_compat = true,
-    add_to_deck = function(self, card, from_debuff)
-        card.ability.eternal = true
-    end,
-    calculate = function(self, card, context)
-        if context.setting_blind and not context.blueprint and G.jokers and G.jokers.cards then
-            local choices = {}
-            for _,
-            j in ipairs(G.jokers.cards) do
-                if j ~= card then
-                    choices [#choices + 1] = j
-                end
-            end
-            if #choices > 0 then
-                FB.set_permanent_debuff(pseudorandom_element(choices, pseudoseed('heartlock')))
-            end
-            return {
-                message = "Locked!",
-                colour = G.C.RED
-            }
-        end
-    end
-})
-
-SMODS.Joker({
     key = "heavenly_cumin",
     loc_txt = {
         name = "Heavenly Cumin",

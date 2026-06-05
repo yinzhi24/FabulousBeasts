@@ -77,14 +77,32 @@ local function set_discards_delta(delta)
 end
 
 local function is_playing_card(card)
-    return card and card.base and card.base.suit and card.base.value
+    return card
+        and card.base
+        and card.base.suit
+        and (
+            card.base.id ~= nil
+            or card.base.value ~= nil
+            or card.base.nominal ~= nil
+        )
 end
 
 local function is_numbered(card)
-    return is_playing_card(card)
-        and not SMODS.has_no_rank(card)
-        and not card.base.face_nominal
-        and card.base.nominal
+    if not is_playing_card(card) then
+        return false
+    end
+
+    if SMODS and SMODS.has_no_rank and SMODS.has_no_rank(card) then
+        return false
+    end
+
+    local id = card.base.id
+    if type(id) == "number" then
+        return id >= 2 and id <= 10
+    end
+
+    return not card.base.face_nominal
+        and type(card.base.nominal) == "number"
         and card.base.nominal >= 2
         and card.base.nominal <= 10
 end
@@ -143,19 +161,12 @@ local function create_blind(args)
         debuff_card = args.debuff_card,
         stay_flipped = args.stay_flipped,
         debuff_hand = args.debuff_hand,
+        modifies_draw = args.modifies_draw,
         press_play = args.press_play,
         drawn_to_hand = args.drawn_to_hand,
         modify_hand = args.modify_hand,
         calculate = args.calculate
     })
-end
-
-local function ensure_rooster_limit()
-    local state = get_state()
-    if not state.rooster_limit then
-        state.rooster_limit = pseudorandom_element({1, 2, 3}, pseudoseed("fb_rooster"))
-    end
-    return state.rooster_limit
 end
 
 local function ensure_goat_values()
@@ -175,16 +186,6 @@ local function ensure_goat_values()
     end
 
     return state
-end
-
-local function rooster_mult_from_limit(limit)
-    if limit == 1 then
-        return 1
-    end
-    if limit == 2 then
-        return 1.5
-    end
-    return 2
 end
 
 -- =========================
@@ -455,30 +456,79 @@ create_blind({
     loc_txt = {
         name = "The Rooster",
         text = {
-            "Beat this blind within",
-            "{C:attention}#1#{} hand(s)",
-            "Blind size: {C:attention}#2#X{}"
+            "Blind size is",
+            "{C:attention}#1#X{}"
         }
     },
 
     loc_vars = function()
-        local limit = ensure_rooster_limit()
-        return loc_vars(limit, rooster_mult_from_limit(limit))
+        local state = get_state()
+
+        if not state.rooster_mult then
+            state.rooster_mult = pseudorandom_element({
+                1.0,
+                1.5,
+                2.0,
+                2.5,
+                3.0,
+                3.5,
+                4.0,
+                4.5,
+                5.0,
+                5.5,
+                6.0,
+                6.5,
+                7.0,
+                7.5,
+                8.0,
+                8.5,
+                9.0,
+                9.5,
+                10.0
+            }, pseudoseed("fb_rooster_mult"))
+        end
+
+        return loc_vars(state.rooster_mult)
     end,
 
     set_blind = function()
-        local limit = ensure_rooster_limit()
-        local size_mult = rooster_mult_from_limit(limit)
+        local state = get_state()
 
-        if G.GAME.current_round then
-            G.GAME.current_round.hands_left = limit
-            G.GAME.current_round.hands_played = 0
+        if not state.rooster_mult then
+            state.rooster_mult = pseudorandom_element({
+                1.0,
+                1.5,
+                2.0,
+                2.5,
+                3.0,
+                3.5,
+                4.0,
+                4.5,
+                5.0,
+                5.5,
+                6.0,
+                6.5,
+                7.0,
+                7.5,
+                8.0,
+                8.5,
+                9.0,
+                9.5,
+                10.0
+            }, pseudoseed("fb_rooster_mult"))
         end
 
-        if G.GAME.blind and G.GAME.blind.chips and not get_state().rooster_chips_scaled then
-            G.GAME.blind.chips = math.floor(G.GAME.blind.chips * size_mult)
-            G.GAME.blind.chip_text = number_format(G.GAME.blind.chips)
-            get_state().rooster_chips_scaled = true
+        if G.GAME.blind
+        and G.GAME.blind.chips
+        and not state.rooster_chips_scaled then
+
+            G.GAME.blind.chips =
+                math.floor(G.GAME.blind.chips * state.rooster_mult)
+
+            G.GAME.blind.chip_text =
+                number_format(G.GAME.blind.chips)
+
+            state.rooster_chips_scaled = true
         end
     end
 })
@@ -561,6 +611,12 @@ create_blind({
     end
 })
 
+local function fb_roll_twist_xmult()
+    -- Use math.random here on purpose: this should be a fresh per-hand roll,
+    -- not a deterministic same-seed result that repeats every hand.
+    return math.random(5, 15) / 10
+end
+
 create_blind({
     key = "twist",
     pos = {x = 0, y = 13},
@@ -574,24 +630,26 @@ create_blind({
         }
     },
 
+    press_play = function()
+        get_state().twist_xmult = fb_roll_twist_xmult()
+    end,
+
+    modify_hand = function(self, cards, poker_hands, text, mult, hand_chips)
+        local state = get_state()
+        state.twist_xmult = state.twist_xmult or fb_roll_twist_xmult()
+
+        return mult * state.twist_xmult, hand_chips, true
+    end,
+
     calculate = function(self, blind, context)
-        if context.joker_main then
-            local xmult = pseudorandom_element({
-                0.5,
-                0.6,
-                0.7,
-                0.8,
-                0.9,
-                1.0,
-                1.1,
-                1.2,
-                1.3,
-                1.4,
-                1.5
-            }, pseudoseed("fb_twist"))
+        if context.final_scoring_step then
+            local state = get_state()
+            local xmult = state.twist_xmult or 1
+            state.twist_xmult = nil
 
             return {
-                x_mult = xmult
+                message = "X" .. tostring(xmult),
+                colour = G.C.MULT
             }
         end
     end
@@ -816,12 +874,20 @@ create_blind({
     loc_txt = {
         name = "The Flood",
         text = {
-            "No retriggers"
+            "Each card trigger loses {C:money}$1{}"
         }
     },
-    set_blind = function()
-        get_state().no_retriggers = true
+    calculate = function(self, blind, context)
+    if context.individual
+    and context.cardarea == G.play
+    and context.other_card then
+        ease_dollars(-1)
+        return {
+            message = "-$1",
+            colour = G.C.MONEY
+        }
     end
+end
 })
 
 local function fb_is_mist_active()
@@ -832,16 +898,28 @@ local function fb_is_mist_active()
         and G.GAME.blind.config.blind.key == "mist"
 end
 
-local function flip_all_hand_cards_face_down()
+local function flip_hand_cards_matching_face_down(predicate)
     if not (G.hand and G.hand.cards) then
         return
     end
 
     for _, card in ipairs(G.hand.cards) do
-        if is_playing_card(card) and card.facing == "front" then
+        if is_playing_card(card)
+            and card.facing == "front"
+            and (not predicate or predicate(card)) then
+            -- card:flip() toggles. Guarding on facing == "front" prevents
+            -- The Shadow from accidentally flipping already-hidden cards back up.
             card:flip()
         end
     end
+end
+
+local function flip_all_hand_cards_face_down()
+    flip_hand_cards_matching_face_down()
+end
+
+local function flip_numbered_hand_cards_face_down()
+    flip_hand_cards_matching_face_down(is_numbered)
 end
 
 local function mist_activate_and_flip()
@@ -860,6 +938,7 @@ end
 
 create_blind({
     key = "mist",
+    modifies_draw = true,
     pos = {x = 0, y = 21},
     boss = {min = 3},
     loc_txt = {
@@ -896,6 +975,7 @@ create_blind({
     key = "shadow",
     pos = {x = 0, y = 22},
     boss = {min = 6},
+    modifies_draw = true,
     loc_txt = {
         name = "The Shadow",
         text = {
@@ -903,8 +983,28 @@ create_blind({
             "cards are flipped"
         }
     },
+    set_blind = function()
+        G.E_MANAGER:add_event(Event({
+            trigger = "after",
+            delay = 0.15,
+            func = function()
+                flip_numbered_hand_cards_face_down()
+                return true
+            end
+        }))
+    end,
+    drawn_to_hand = function()
+        G.E_MANAGER:add_event(Event({
+            trigger = "after",
+            delay = 0.05,
+            func = function()
+                flip_numbered_hand_cards_face_down()
+                return true
+            end
+        }))
+    end,
     stay_flipped = function(self, area, card)
-        return is_numbered(card)
+        return area == G.hand and is_numbered(card)
     end
 })
 
@@ -1195,9 +1295,7 @@ create_blind({
     loc_txt = {
         name = "Wood Ape",
         text = {
-            "Shuffle and pin all Jokers",
-            "Each played card has",
-            "{C:green}1 in 2{} chance to be discarded"
+            "Shuffle and pin all Jokers"
         }
     },
     set_blind = function()

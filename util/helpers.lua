@@ -207,10 +207,6 @@ end
 function FB.is_final_hand()
     return G and G.GAME and G.GAME.current_round and G.GAME.current_round.hands_left == 0
 end
--- =========================================================
--- Fabulous Beasts shared registries and helpers
--- Moved from common.lua so rarity files stay Joker-only.
--- =========================================================
 FB.joker_keys = {
     "album_cover",
     "alternate_album_cover",
@@ -226,7 +222,6 @@ FB.joker_keys = {
     "food_reserve",
     "foraged_mushrooms",
     "health_insurance",
-    "heart_lock",
     "heavenly_cumin",
     "immortality_elixir",
     "hellspice_hotpot",
@@ -395,6 +390,7 @@ FB.vanilla_food_joker_keys = FB.vanilla_food_joker_keys or {
     j_seltzer = true,
     j_egg = true,
     j_turtle_bean = true,
+    j_diet_cola = true,
 }
 FB.is_food_joker = FB.is_food_joker or function(card)
     if not(card and FB.get_center_key) then
@@ -1451,4 +1447,11 @@ FB.recharge_joker = FB.recharge_joker or function(card)
         return true
     end
     return false
+end
+function FB.get_bilibili_pos()
+    if FB.config and FB.config.og_bilibili_colors then
+        return { x = 0, y = 14 } -- OG blue version
+    end
+
+    return { x = 2, y = 12 } -- modern pink version
 end

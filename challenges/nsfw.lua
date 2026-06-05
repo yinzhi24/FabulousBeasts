@@ -29,7 +29,7 @@ SMODS.Challenge({
 
     rules = {
         custom = {
-            { id = "none" }
+            FB.challenge_rule("fb_difficulty_0"),
         },
         modifiers = {}
     }

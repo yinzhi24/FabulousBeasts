@@ -545,10 +545,7 @@ SMODS.Joker({
         }
     },
     atlas = "jokers",
-    pos = {
-        x = 10,
-        y = 8
-    },
+    pos = { x = 10, y = 8 },
     rarity = 3,
     cost = 13,
     discovered = true,
@@ -571,16 +568,15 @@ SMODS.Joker({
     calculate = function(self, card, context)
         if context.setting_blind and not context.blueprint then
             card.ability.extra.hand = FB.random_hand_type('divine_warsword')
+            return
+        end
+
+        if FB.is_scoring_joker_main(context) and context.scoring_name == card.ability.extra.hand then
             return {
-                message = card.ability.extra.hand,
-                colour = G.C.ATTENTION,
+                x_mult = card.ability.extra.xmult or 3,
+                balance = true,
                 card = card
             }
-        end
-        if FB.is_scoring_joker_main(context) and context.scoring_name == card.ability.extra.hand then
-            return FB.balance_score_return(card, {
-                mult_multiplier = card.ability.extra.xmult or 3
-            })
         end
     end
 })

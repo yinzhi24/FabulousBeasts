@@ -53,10 +53,7 @@ SMODS.Joker({
         }
     },
     atlas = "jokers",
-    pos = {
-        x = 2,
-        y = 12
-    },
+    pos = FB.get_bilibili_pos(),
     rarity = 4,
     cost = 25,
     discovered = true,
@@ -277,9 +274,10 @@ SMODS.Joker({
     loc_txt = {
         name = "Dijiang",
         text = {
-            "{C:attention}Retrigger{} Heart cards {C:attention}#1#{} times",
-            "Comes with {C:attention}Perishable{}",
-            "{C:red}Self destructs{} after {C:attention}#2#{} debuffed rounds"
+            "Gains {X:mult,C:white}X#2#{} Mult for each",
+            "{C:hearts}Heart{} card in your entire deck",
+            "{C:red}Self destructs{} if you have no {C:hearts}Hearts{}",
+            "{C:inactive}Currently {X:mult,C:white}X#1#{} Mult{}"
         }
     },
     atlas = "jokers",
@@ -294,44 +292,96 @@ SMODS.Joker({
     blueprint_compat = false,
     config = {
         extra = {
-            repetitions = 6,
-            debuff_rounds = 0,
-            debuff_limit = 5
+            xmult_per_heart = 1
         }
     },
     loc_vars = function(self, info_queue, card)
+        local hearts = FB.count_all_hearts_for_dijiang and FB.count_all_hearts_for_dijiang() or 0
+        local current = math.max(1, hearts * (card.ability.extra.xmult_per_heart or 1))
+
         return {
             vars = {
-                card.ability.extra.repetitions,
-                card.ability.extra.debuff_limit
+                current,
+                card.ability.extra.xmult_per_heart or 1
             }
         }
     end,
-    add_to_deck = function(self, card, from_debuff)
-        card.ability.perishable = true
-        card.ability.perish_tally = card.ability.perish_tally or 5
-    end,
     calculate = function(self, card, context)
-        if FB.is_card_repetition(context) and context.cardarea == G.play and context.other_card and context.other_card: is_suit('Hearts') then
+        local function area_heart_count(area)
+            local count = 0
+
+            if not (area and area.cards) then
+                return count
+            end
+
+            for _, c in ipairs(area.cards) do
+                if c and not c.removed and c.is_suit and c:is_suit("Hearts") then
+                    count = count + 1
+                end
+            end
+
+            return count
+        end
+
+        function FB.count_all_hearts_for_dijiang()
+            local seen = {}
+            local count = 0
+
+            local function count_card(c)
+                if c and not c.removed and not seen[c] and c.is_suit and c:is_suit("Hearts") then
+                    seen[c] = true
+                    count = count + 1
+                end
+            end
+
+            for _, c in ipairs((G and G.playing_cards) or {}) do
+                count_card(c)
+            end
+
+            for _, area in ipairs({
+                G and G.hand,
+                G and G.deck,
+                G and G.discard,
+                G and G.play
+            }) do
+                if area and area.cards then
+                    for _, c in ipairs(area.cards) do
+                        count_card(c)
+                    end
+                end
+            end
+
+            return count
+        end
+
+        if FB.is_scoring_joker_main(context) then
+            local hearts = FB.count_all_hearts_for_dijiang()
+            local xmult = math.max(1, hearts * (card.ability.extra.xmult_per_heart or 1))
+
             return {
-                repetitions = card.ability.extra.repetitions or 6,
+                x_mult = xmult,
                 card = card
             }
         end
-        if FB.main_end_of_round_once(card, context, 'fb_dijiang_debuff_counter') and not context.blueprint then
-            if card.debuff then
-                card.ability.extra.debuff_rounds =(card.ability.extra.debuff_rounds or 0) + 1
-                if card.ability.extra.debuff_rounds >=(card.ability.extra.debuff_limit or 5) then
-                    FB.queue_self_destroy(card)
-                    FB.resolve_or_defer_queued_actions(context)
-                    return {
-                        message = "Destroyed!",
-                        colour = G.C.RED,
-                        card = card
-                    }
-                end
-            else
-                card.ability.extra.debuff_rounds = 0
+
+        if not context.blueprint
+        and (
+            context.setting_blind
+            or context.before
+            or context.after
+            or context.discard
+            or context.remove_playing_cards
+            or context.destroy_card
+        ) then
+            if FB.count_all_hearts_for_dijiang() <= 0 then
+                FB.queue_self_destroy(card)
+                FB.resolve_or_defer_queued_actions(context)
+
+                return {
+                    message = "No Hearts!",
+                    colour = G.C.RED,
+                    card = card
+                }
             end
         end
     end
@@ -1041,9 +1091,8 @@ SMODS.Joker({
     loc_txt = {
         name = "Sibuxiang",
         text = {
-            "There's always at least one",
-            "{C:green}Uncommon{} and one {C:red}Rare{} Joker in shops",
-            "Boss blinds add a {C:purple}Legendary{} Joker to the next shop"
+            "{X:mult,C:white}X#2#{} Mult per {C:money}$1{}",
+            "{C:inactive}Currently {X:mult,C:white}X#1#{} Mult{}"
         }
     },
     atlas = "jokers",
@@ -1055,139 +1104,32 @@ SMODS.Joker({
     cost = 25,
     discovered = true,
     unlocked = true,
-    blueprint_compat = false,
+    blueprint_compat = true,
+    config = {
+        extra = {
+            xmult_per_dollar = 1
+        }
+    },
+    loc_vars = function(self, info_queue, card)
+        local dollars = math.max(0, FB.num and FB.num(G.GAME and G.GAME.dollars, 0) or ((G.GAME and G.GAME.dollars) or 0))
+        local per_dollar = card.ability.extra.xmult_per_dollar or 1
+
+        return {
+            vars = {
+                math.max(1, dollars * per_dollar),
+                per_dollar
+            }
+        }
+    end,
     calculate = function(self, card, context)
-        local function has_shop_rarity(r)
-            if not(G.shop_jokers and G.shop_jokers.cards) then
-                return false
-            end
-            for _,
-            c in ipairs(G.shop_jokers.cards) do
-                local center = c.config and c.config.center
-                if center and center.rarity == r then
-                    return true
-                end
-            end
-            return false
-        end
-        local function get_random_joker_key_of_rarity(r)
-            if not(G.P_CENTER_POOLS and G.P_CENTER_POOLS.Joker) then
-                return nil
-            end
-            local choices = {}
-            for _,
-            center in ipairs(G.P_CENTER_POOLS.Joker) do
-                if center
-                and center.set == "Joker"
-                and center.key
-                and center.rarity == r
-                and center.unlocked ~= false
-                and not center.no_doe
-                and not center.demo
-                then
-                    choices [#choices + 1] = center.key
-                end
-            end
-            if #choices <= 0 then
-                return nil
-            end
-            return pseudorandom_element(
-            choices,
-            pseudoseed("sibuxiang_"..tostring(r))
-           )
-        end
-        local function choose_shop_replacement_target(protected_rarities)
-            if not(G.shop_jokers and G.shop_jokers.cards) then
-                return nil
-            end
-            protected_rarities = protected_rarities or {}
-            -- Prefer replacing a Joker that is not one of the rarities
-            -- Sibuxiang is trying to preserve.
-            for _,
-            shop_card in ipairs(G.shop_jokers.cards) do
-                local center = shop_card.config and shop_card.config.center
-                local rarity = center and center.rarity
-                if not protected_rarities [rarity] then
-                    return shop_card
-                end
-            end
-            -- Fallback: replace the first shop Joker.
-            return G.shop_jokers.cards [1]
-        end
-        local function replace_shop_joker_with_rarity(r, protected_rarities)
-            local key = get_random_joker_key_of_rarity(r)
-            if not key then
-                return false
-            end
-            local target = choose_shop_replacement_target(protected_rarities)
-            if not target then
-                return false
-            end
-            G.E_MANAGER: add_event(Event({
-                func = function()
-                    local center = G.P_CENTERS [key]
-                    if not center then
-                        return true
-                    end
-                    target: set_ability(center, nil, true)
-                    target: set_cost()
-                    target: juice_up(0.3, 0.4)
-                    return true
-                end
-            }))
-            return true
-        end
-        -- Mark next shop after a boss blind.
-        if FB.main_end_of_round_once(card, context, "fb_sibuxiang_boss")
-        and G.GAME
-        and G.GAME.blind
-        and G.GAME.blind.boss
-        and not context.blueprint then
-            G.GAME.fb_sibuxiang_pending_legendary = true
-        end
-        -- Shop-start logic.
-        if context.starting_shop and not context.blueprint then
-            local shop_round =
-            (G.GAME.round or 0)
-            +((G.GAME.round_resets and G.GAME.round_resets.ante or 0) * 100)
-            if G.GAME.fb_sibuxiang_last_shop_id == shop_round then
-                return
-            end
-            G.GAME.fb_sibuxiang_last_shop_id = shop_round
-            local changed = false
-            -- Protect rarities that already satisfy the requirement.
-            local protected = {}
-            if has_shop_rarity(2) then
-                protected [2] = true
-            end
-            if has_shop_rarity(3) then
-                protected [3] = true
-            end
-            if G.GAME.fb_sibuxiang_pending_legendary and has_shop_rarity(4) then
-                protected [4] = true
-            end
-            if not has_shop_rarity(2) then
-                changed = replace_shop_joker_with_rarity(2, protected) or changed
-                protected [2] = true
-            end
-            if not has_shop_rarity(3) then
-                changed = replace_shop_joker_with_rarity(3, protected) or changed
-                protected [3] = true
-            end
-            if G.GAME.fb_sibuxiang_pending_legendary then
-                if not has_shop_rarity(4) then
-                    changed = replace_shop_joker_with_rarity(4, protected) or changed
-                    protected [4] = true
-                end
-                G.GAME.fb_sibuxiang_pending_legendary = false
-            end
-            if changed then
-                return {
-                    message = "Shop!",
-                    colour = G.C.ATTENTION,
-                    card = card
-                }
-            end
+        if FB.is_scoring_joker_main(context) then
+            local dollars = math.max(0, FB.num and FB.num(G.GAME and G.GAME.dollars, 0) or ((G.GAME and G.GAME.dollars) or 0))
+            local per_dollar = card.ability.extra.xmult_per_dollar or 1
+
+            return {
+                x_mult = math.max(1, dollars * per_dollar),
+                card = card
+            }
         end
     end
 })
@@ -1313,7 +1255,7 @@ SMODS.Joker({
     loc_txt = {
         name = "Taowu",
         text = {
-            "{C:green}#1#in #2#{} chance to {C:red}destroy{}",
+            "{C:green}#1# in #2#{} chance to {C:red}destroy{}",
             "each scored card.",
             "Earn that card's {C:chips}Chip{} value",
             "as {C:money}money{} when destroyed.",

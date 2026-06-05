@@ -386,10 +386,7 @@ SMODS.Joker({
         }
     },
     atlas = "jokers",
-    pos = {
-        x = 7,
-        y = 4
-    },
+    pos = { x = 7, y = 4 },
     rarity = 2,
     cost = 8,
     discovered = true,
@@ -412,13 +409,25 @@ SMODS.Joker({
     end,
     calculate = function(self, card, context)
         if context.setting_blind and not context.blueprint then
-            card.ability.extra.limit = math.max(card.ability.extra.minimum or 1000, ((G.GAME.round_resets and G.GAME.round_resets.ante) or 1) *(card.ability.extra.per_ante or 1000))
+            card.ability.extra.limit = math.max(
+                card.ability.extra.minimum or 1000,
+                ((G.GAME.round_resets and G.GAME.round_resets.ante) or 1) * (card.ability.extra.per_ante or 1000)
+            )
+            return
         end
+
         if FB.is_scoring_joker_main(context) then
             if FB.num(hand_chips, 0) <= FB.num(card.ability.extra.limit, 1000) then
-                return FB.balance_score_return(card)
+                return {
+                    balance = true,
+                    card = card
+                }
             end
-            return FB.no_score_return(card)
+
+            return {
+                x_mult = 0,
+                card = card
+            }
         end
     end
 })

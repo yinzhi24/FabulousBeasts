@@ -2,7 +2,7 @@
   "id": "fabulousbeasts",
   "name": "Fabulous Beasts",
   "author": ["Zinaida"],
-  "description": "Chinese mythology and Fabulous Beasts themed Balatro expansion.",
+  "description": "A mod that expands some vanilla features and based on Fabulous Beasts",
   "prefix": "fb",
   "main_file": "main.lua",
   "priority": 0,

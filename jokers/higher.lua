@@ -223,7 +223,7 @@ SMODS.Joker({
     loc_txt = {
         name = "Happy Ending",
         text = {
-            "{X:dark_edition,C:edition,E:#1#,s:#2#}You did it!{}",
+            "{C:dark_edition}You did it!{}",
             "{X:edition,C:chips}^^#3#{} Chips",
             "{X:dark_edition,C:mult}^^#4#{} Mult"
         }
@@ -266,7 +266,7 @@ SMODS.Joker({
     loc_txt = {
         name = "Super Lollipop",
         text = {
-            "{X:edition,C:dark_edition,E:1,s:1.2}Gives me magical powers!{}",
+            "{C:dark_edition,E:1,s:1.2}Gives me magical powers!{}",
             "{C:inactive}(Cannot be debuffed, destroyed,{}",
             "{C:inactive}or negatively affected){}",
             "{C:attention}Retrigger{} all cards and Jokers",

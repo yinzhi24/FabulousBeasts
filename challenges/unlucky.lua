@@ -151,7 +151,8 @@ SMODS.Challenge({
     rules = {
         custom = {
             { id = "fb_unlucky_wheel" },
-            { id = "fb_unlucky_seals" }
+            { id = "fb_unlucky_seals" },
+            FB.challenge_rule("fb_difficulty_2")
         },
 
         modifiers = {}
@@ -189,19 +190,6 @@ SMODS.Challenge({
             { id = "tag_economy" }
         },
 
-        banned_other = {
-            { id = "bl_wall", type = "blind" },
-            { id = "bl_arm", type = "blind" },
-            { id = "bl_club", type = "blind" },
-            { id = "bl_goad", type = "blind" },
-            { id = "bl_water", type = "blind" },
-            { id = "bl_window", type = "blind" },
-            { id = "bl_plant", type = "blind" },
-            { id = "bl_head", type = "blind" },
-            { id = "bl_tooth", type = "blind" },
-            { id = "bl_flint", type = "blind" },
-            { id = "bl_verdant_leaf", type = "blind" },
-            { id = "bl_violet_vessel", type = "blind" }
-        }
+        banned_other = {}
     }
 })

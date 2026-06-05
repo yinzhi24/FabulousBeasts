@@ -22,7 +22,11 @@ SMODS.Atlas({
     py = 95
 })
 
+assert(SMODS.load_file("config.lua"))()
+
 assert(SMODS.load_file("util/helpers.lua"))()
+assert(SMODS.load_file("util/hidden_synergies.lua"))()
+assert(SMODS.load_file("challenges/challenge_rules.lua"))()
 
 assert(SMODS.load_file("jokers/common.lua"))()
 assert(SMODS.load_file("jokers/uncommon.lua"))()
@@ -40,3 +44,16 @@ assert(SMODS.load_file("challenges/growing_up_together.lua"))()
 assert(SMODS.load_file("challenges/eidolon.lua"))()
 assert(SMODS.load_file("challenges/nsfw.lua"))()
 assert(SMODS.load_file("challenges/picnic_day.lua"))()
+assert(SMODS.load_file("challenges/cycles.lua"))()
+assert(SMODS.load_file("challenges/cant_let_go.lua"))()
+assert(SMODS.load_file("challenges/keeping_spirits_high.lua"))()
+assert(SMODS.load_file("challenges/aleph_0.lua"))()
+assert(SMODS.load_file("challenges/angels.lua"))()
+assert(SMODS.load_file("challenges/base_after_base.lua"))()
+assert(SMODS.load_file("challenges/little_one.lua"))()
+assert(SMODS.load_file("challenges/little_two.lua"))()
+assert(SMODS.load_file("challenges/little_three.lua"))()
+assert(SMODS.load_file("challenges/ascension_to_heaven.lua"))()
+
+
+-- dev username for dev mode: Zinaidev0.2.0-alpha-06BCF5-FF6565-1B
