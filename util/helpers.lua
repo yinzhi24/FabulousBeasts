@@ -70,7 +70,7 @@ function FB.is_stone(card)
 end
 function FB.safe_change_hand_size(amount)
     if G and G.hand and G.hand.change_size then
-        G.hand: change_size(amount)
+        G.hand:change_size(amount)
     end
 end
 function FB.safe_change_joker_slots(amount)
@@ -233,9 +233,12 @@ FB.joker_keys = {
     "mortal_realm",
     "pay_stub",
     "rat_poison",
+    "rubbing_walnuts",
     "shunshui_express",
     "skewered_kebab",
     "teacup",
+    "tea_table",
+    "vending_machine",
     "temporal_confinement",
     "tile_cat",
     "tulou",
@@ -250,6 +253,7 @@ FB.joker_keys = {
     "heavenly_elixirs",
     "hellish_delicacies",
     "lunchbox_medkit",
+    "mahjong_table",
     "mapo_tofu",
     "moon_palace",
     "mooncake_cannon",
@@ -282,6 +286,7 @@ FB.joker_keys = {
     "underworld",
     "baby_tianlu",
     "baby_bixie",
+    "baize",
     "bajin",
     "bilibili",
     "bibi",
@@ -349,6 +354,7 @@ FB.food_joker_keys = FB.food_joker_keys or {
 FB.beast_joker_keys = FB.beast_joker_keys or {
     baby_tianlu = true,
     baby_bixie = true,
+    baize = true,
     bajin = true,
     bibi = true,
     bixie = true,
@@ -407,7 +413,7 @@ FB.is_food_joker = FB.is_food_joker or function(card)
     end
     -- Fabulous Beasts Jokers are stored as j_fb_<key>, but the internal food
     -- registry uses the base key.
-    key = key: gsub('^j_fb_', '')
+    key = key:gsub('^j_fb_', '')
     return FB.food_joker_keys [key] == true
 end
 FB.is_beast_joker = FB.is_beast_joker or function(card)
@@ -418,7 +424,7 @@ FB.is_beast_joker = FB.is_beast_joker or function(card)
     if not key then
         return false
     end
-    key = tostring(key): gsub('^j_fb_', '')
+    key = tostring(key):gsub('^j_fb_', '')
     return FB.beast_joker_keys [key] == true
 end
 FB.count_food_jokers_explicit = FB.count_food_jokers_explicit or function()
@@ -467,7 +473,7 @@ FB.num = FB.num or function(value, fallback)
     if type(value) == 'table' then
         if type(value.to_number) == 'function' then
             local ok, n = pcall(function()
-                return value: to_number()
+                return value:to_number()
             end)
             if ok and type(n) == 'number' then
                 return n
@@ -475,7 +481,7 @@ FB.num = FB.num or function(value, fallback)
         end
         if type(value.toNumber) == 'function' then
             local ok, n = pcall(function()
-                return value: toNumber()
+                return value:toNumber()
             end)
             if ok and type(n) == 'number' then
                 return n
@@ -761,7 +767,7 @@ FB.is_copyable_joker = FB.is_copyable_joker or function(other_card)
         return false
     end
     local key = FB.get_center_key and FB.get_center_key(other_card) or ''
-    key = tostring(key): gsub('^j_fb_', '')
+    key = tostring(key):gsub('^j_fb_', '')
     if key == 'happy_ending' then
         return false
     end
@@ -959,7 +965,7 @@ FB.card_cash_value = FB.card_cash_value or function(card, edition_mult, mod_bonu
     end
     edition_mult = FB.num(edition_mult, 2)
     mod_bonus = FB.num(mod_bonus, 5)
-    local value = FB.num(card.get_chip_bonus and card: get_chip_bonus(), 0)
+    local value = FB.num(card.get_chip_bonus and card:get_chip_bonus(), 0)
     if card.edition then
         value = value * edition_mult
     end
@@ -1169,7 +1175,7 @@ FB.raw_key = FB.raw_key or function(card)
     if not key then
         return nil
     end
-    return tostring(key): gsub('^j_fb_', '')
+    return tostring(key):gsub('^j_fb_', '')
 end
 FB.get_rarity = FB.get_rarity or function(card)
     return card and card.config and card.config.center and card.config.center.rarity
@@ -1411,7 +1417,7 @@ FB.recharge_joker = FB.recharge_joker or function(card)
     if not key then
         return false
     end
-    key = tostring(key): gsub("^j_fb_", "")
+    key = tostring(key):gsub("^j_fb_", "")
     local extra = card.ability.extra
     if type(extra) ~= "table" then
         return false
@@ -1448,10 +1454,60 @@ FB.recharge_joker = FB.recharge_joker or function(card)
     end
     return false
 end
-function FB.get_bilibili_pos()
+FB.get_bilibili_pos = FB.get_bilibili_pos or function()
     if FB.config and FB.config.og_bilibili_colors then
         return { x = 0, y = 14 } -- OG blue version
     end
 
     return { x = 2, y = 12 } -- modern pink version
+end
+
+FB = FB or {}
+
+function FB.add_ambrosia_blender_progress(amount)
+    amount = math.floor(math.max(0, amount or 0))
+    if amount <= 0 then return end
+    if not (G and G.jokers and G.jokers.cards) then return end
+
+    for _, joker in ipairs(G.jokers.cards) do
+        local center = joker.config and joker.config.center
+        if center and center.key == "j_fb_ambrosia_blender" then
+            local e = joker.ability.extra
+
+            local before = e.progress or 0
+
+            e.progress = math.min(
+                e.max_progress or 999999,
+                before + amount
+            )
+
+            if before < (e.max_progress or 999999)
+            and e.progress >= (e.max_progress or 999999) then
+                check_for_unlock({ type = "fb_explosive_blender" })
+            end
+        end
+    end
+end
+
+FB._ambrosia_blender_calculate_effect_ref =
+    FB._ambrosia_blender_calculate_effect_ref or SMODS.calculate_effect
+
+function SMODS.calculate_effect(effect, scored_card, key)
+    if effect then
+        local gain = 0
+
+        if type(effect.chips) == "number" then
+            gain = gain + math.max(0, effect.chips)
+        end
+
+        if type(effect.mult) == "number" then
+            gain = gain + math.max(0, effect.mult)
+        end
+
+        if gain > 0 then
+            FB.add_ambrosia_blender_progress(gain)
+        end
+    end
+
+    return FB._ambrosia_blender_calculate_effect_ref(effect, scored_card, key)
 end

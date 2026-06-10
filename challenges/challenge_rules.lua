@@ -38,6 +38,10 @@ FB.challenge_text = {
         "The deification trial awaits you"
     },
 
+    fb_real_trial = {
+        "Trying to ascend beyond Heaven, eh? Get ready for eternal suffering!"
+    },
+
     fb_win_ante = {
         "Winning ante is {C:attention}#1#{}"
     },
@@ -98,6 +102,19 @@ FB.challenge_text = {
         "Skipping increases future clear scaling"
     },
 
+    fb_out_of_spotlight = {
+        "Only non-Legendary {C:attention}Fabulous Beasts{} Jokers may appear"
+    },
+
+    fb_ascension_positive_decks_sleeves = {
+        "All positive Deck and Sleeve effects are active",
+        "{C:attention}8{} hands, {C:attention}8{} discards, {C:attention}8{} Joker slots, start with {C:money}$16{}"
+    },
+
+    fb_card_selection_plus_1 = {
+        "You may play and discard up to {C:attention}6{} cards"
+    },
+
     fb_difficulty_0 = {
         "Difficulty: {X:inactive,C:white}Free{}"
     },
@@ -136,16 +153,21 @@ FB.challenge_text = {
 
     fb_difficulty_9 = {
         "Difficulty: {C:dark_edition}HELP ME :({}"
-    }
+    },
 
+    fb_difficulty_x = {
+        "Difficulty: {C:dark_edition}Go see a therapist, and touch grass for real{}"
+    }
 }
 
-SMODS.current_mod.process_loc_text = function()
-    G.localization.misc = G.localization.misc or {}
-    G.localization.misc.v_text = G.localization.misc.v_text or {}
+if SMODS and SMODS.current_mod then
+    SMODS.current_mod.process_loc_text = function()
+        G.localization.misc = G.localization.misc or {}
+        G.localization.misc.v_text = G.localization.misc.v_text or {}
 
-    for id, text in pairs(FB.challenge_text or {}) do
-        G.localization.misc.v_text["ch_c_" .. id] = text
+        for id, text in pairs(FB.challenge_text or {}) do
+            G.localization.misc.v_text["ch_c_" .. id] = text
+        end
     end
 end
 
@@ -326,6 +348,74 @@ FB.challenge_bans.hand_discard_breakers = {
     }
 }
 
+
+function FB.challenge_is_legendary_plus_rarity(rarity)
+    if type(rarity) == "number" then
+        return rarity >= 4
+    end
+
+    rarity = tostring(rarity or ""):lower()
+
+    return rarity == "legendary"
+        or rarity == "exotic"
+        or rarity == "divine"
+        or rarity == "fb_exotic"
+        or rarity == "fb_divine"
+        or rarity == "fb_legendary"
+end
+
+function FB.challenge_is_out_of_spotlight_joker_key(key)
+    local center = key and G and G.P_CENTERS and G.P_CENTERS[key]
+    if not center or center.set ~= "Joker" then return false end
+
+    -- Only normal Fabulous Beasts Jokers are allowed.
+    if not tostring(key):find("^j_fb_") then return false end
+
+    -- Legendary, Exotic, Divine, and any future Legendary+ rarity are banned.
+    if FB.challenge_is_legendary_plus_rarity(center.rarity) then return false end
+
+    return center.unlocked ~= false and not center.demo and not center.no_doe
+end
+
+function FB.challenge_random_out_of_spotlight_joker_key(seed)
+    local eligible = {}
+
+    if G and G.P_CENTER_POOLS and G.P_CENTER_POOLS.Joker then
+        for _, center in ipairs(G.P_CENTER_POOLS.Joker) do
+            if center and center.key and FB.challenge_is_out_of_spotlight_joker_key(center.key) then
+                eligible[#eligible + 1] = center.key
+            end
+        end
+    elseif G and G.P_CENTERS then
+        for key, center in pairs(G.P_CENTERS) do
+            if center and FB.challenge_is_out_of_spotlight_joker_key(key) then
+                eligible[#eligible + 1] = key
+            end
+        end
+    end
+
+    if #eligible <= 0 then return nil end
+    return pseudorandom_element(eligible, pseudoseed(seed or "fb_out_of_spotlight_shop"))
+end
+
+function FB.challenge_out_of_spotlight_replace_shop_joker(_type, area, forced_key)
+    if not FB.challenge_has_rule("fb_out_of_spotlight") then
+        return forced_key
+    end
+
+    -- This rule only affects the shop Joker area. It does not create a giant banned list,
+    -- so the challenge menu stays clean instead of showing the custom-deck/bans wall.
+    if not FB.challenge_is_shop_joker(_type, area) then
+        return forced_key
+    end
+
+    if forced_key and FB.challenge_is_out_of_spotlight_joker_key(forced_key) then
+        return forced_key
+    end
+
+    return FB.challenge_random_out_of_spotlight_joker_key("fb_out_of_spotlight_shop") or forced_key
+end
+
 function FB.challenge_restrictions(opts)
     opts = opts or {}
     local banned_cards = {}
@@ -343,6 +433,7 @@ function FB.challenge_restrictions(opts)
     local function add_blind(id)
         if id then banned_other[#banned_other + 1] = { id = id, type = "blind" } end
     end
+
 
     if opts.no_non_standard_boosters then add_card(FB.challenge_bans.boosters_non_standard) end
     if opts.no_boosters then add_card(FB.challenge_bans.boosters_all) end
@@ -542,6 +633,8 @@ function FB.challenge_first_standard_pack_key()
 end
 
 function FB.challenge_patch_card_creation(_type, area, legendary, _rarity, skip_materialize, soulable, forced_key, key_append, vanilla_create_card)
+    forced_key = FB.challenge_out_of_spotlight_replace_shop_joker(_type, area, forced_key)
+
     if FB.challenge_has_rule("fb_standard_packs_only")
     and forced_key
     and FB.challenge_is_shop_booster(_type, area)
@@ -660,7 +753,6 @@ function FB.challenge_increment_base_after_base_skip()
         (G.GAME.fb_base_after_base.clear_increment or 0.5) + 0.5
 end
 
-FB = FB or {}
 FB._base_after_base_skip_ref = FB._base_after_base_skip_ref or skip_blind
 
 function skip_blind(e)
@@ -677,6 +769,38 @@ function FB.challenge_increment_base_after_base_clear()
     G.GAME.fb_base_after_base.mult =
         (G.GAME.fb_base_after_base.mult or 1)
         + (G.GAME.fb_base_after_base.clear_increment or 0.5)
+end
+
+-- ---------- Positive Ascension helpers ----------
+-- Keeps only positive Deck/Sleeve effects.
+
+function FB.challenge_apply_positive_ascension_starting_state()
+    if not FB.challenge_has_rule("fb_ascension_positive_decks_sleeves") then return end
+    if not (G and G.GAME) then return end
+    if G.GAME.fb_positive_ascension_state_applied then return end
+
+    G.GAME.fb_positive_ascension_state_applied = true
+
+    if SMODS and SMODS.change_play_limit then
+    SMODS.change_play_limit(1)
+end
+
+if SMODS and SMODS.change_discard_limit then
+    SMODS.change_discard_limit(1)
+end
+end
+
+
+function FB.challenge_apply_card_selection_bonus()
+    if not FB.challenge_has_rule("fb_card_selection_plus_1") then return end
+    if not (G and G.hand and G.hand.config) then return end
+    if G.GAME and G.GAME.fb_card_selection_bonus_applied then return end
+
+    if G.GAME then
+        G.GAME.fb_card_selection_bonus_applied = true
+    end
+
+    G.hand.config.highlighted_limit = (G.hand.config.highlighted_limit or 5) + 1
 end
 
 function FB.install_challenge_rule_hooks()
@@ -781,6 +905,7 @@ function FB.install_challenge_rule_hooks()
 
             FB.challenge_apply_win_ante()
             FB.challenge_zero_base_score_apply()
+            FB.challenge_apply_card_selection_bonus()
 
             if G and G.E_MANAGER then
                 G.E_MANAGER:add_event(Event({
@@ -789,6 +914,8 @@ function FB.install_challenge_rule_hooks()
                     func = function()
                         FB.challenge_apply_win_ante()
                         FB.challenge_zero_base_score_apply()
+                        FB.challenge_apply_positive_ascension_starting_state()
+                        FB.challenge_apply_card_selection_bonus()
                         FB.challenge_spawn_pinned_shanque_once()
                         return true
                     end

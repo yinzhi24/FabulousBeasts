@@ -231,7 +231,7 @@ function FB.raw_key(card_or_key)
     )
 end
 
-function FB.is_joker_key(card_or_key, key)
+FB.is_joker_key = FB.is_joker_key or function(card_or_key, key)
     local card_key = FB.raw_key(card_or_key)
 
     if not card_key then
@@ -267,7 +267,7 @@ function FB.secret_joker_name(key)
     end)
 end
 
-function FB.joker_cards()
+FB.joker_cards = FB.joker_cards or function()
     return (G and G.jokers and G.jokers.cards) or {}
 end
 
@@ -404,27 +404,6 @@ function FB.safe_loc_key(s)
     s = tostring(s or "unknown")
     s = s:gsub("[^%w_]", "_")
     return s
-end
-
-function FB.make_hidden_other_loc(key, name, text)
-    if not (G and G.localization and G.localization.descriptions) then return end
-
-    G.localization.descriptions.Other = G.localization.descriptions.Other or {}
-
-    local entry = G.localization.descriptions.Other[key] or {}
-    entry.name = name
-    entry.text = text or {}
-    entry.text_parsed = {}
-
-    for _, line in ipairs(entry.text) do
-        if loc_parse_string then
-            entry.text_parsed[#entry.text_parsed + 1] = loc_parse_string(line)
-        else
-            entry.text_parsed[#entry.text_parsed + 1] = line
-        end
-    end
-
-    G.localization.descriptions.Other[key] = entry
 end
 
 function FB.add_secret_synergy_info(info_queue, card)
@@ -602,6 +581,11 @@ end
 
 function FB.secret_destroy_card(card, context)
     if not card then return false end
+
+    if FB.is_joker_key and FB.is_joker_key(card, "dijiang") then
+        FB.secret_handle_dijiang_destroy(card, context or {})
+    end
+
     if FB.queue_destroy then
         FB.queue_destroy(card)
         if FB.resolve_or_defer_queued_actions then FB.resolve_or_defer_queued_actions(context or {}) end
@@ -609,6 +593,118 @@ function FB.secret_destroy_card(card, context)
     end
     if card.start_dissolve then card:start_dissolve(); return true end
     return false
+end
+
+function FB.secret_to_number(value, fallback)
+    fallback = fallback or 0
+
+    if type(value) == "number" then
+        return value
+    end
+
+    if FB.num then
+        local ok, result = pcall(FB.num, value, fallback)
+        if ok and type(result) == "number" then
+            return result
+        end
+    end
+
+    if type(value) == "table" then
+        if value.to_number then
+            local ok, result = pcall(function() return value:to_number() end)
+            if ok and type(result) == "number" then return result end
+        end
+
+        if value.toNumber then
+            local ok, result = pcall(function() return value:toNumber() end)
+            if ok and type(result) == "number" then return result end
+        end
+
+        if value.array and value.sign then
+            local s = tostring(value)
+            local n = tonumber(s)
+            if n then return n end
+        end
+    end
+
+    local n = tonumber(value)
+    if n then return n end
+
+    return fallback
+end
+
+function FB.secret_nonnegative_number(value, fallback)
+    local n = FB.secret_to_number(value, fallback or 0)
+    if n < 0 then return 0 end
+    return n
+end
+
+function FB.secret_handle_dijiang_destroy(dijiang, context)
+    if not dijiang then return false end
+    if not FB.is_joker_key(dijiang, "dijiang") then return false end
+    if not FB.secret_pair_active("dijiang", "hundun") then return false end
+
+    G.GAME = G.GAME or {}
+    if G.GAME.fb_hundun_dijiang_destroyed then return false end
+    G.GAME.fb_hundun_dijiang_destroyed = true
+
+    local hundun = FB.find_joker and FB.find_joker("hundun")
+    if hundun then
+        if hundun.ability then
+            hundun.ability.fb_hundun_dijiang_destroyed = true
+        end
+
+        if hundun ~= dijiang then
+            if FB.queue_destroy then
+                FB.queue_destroy(hundun)
+            elseif hundun.start_dissolve then
+                hundun:start_dissolve()
+            end
+        end
+    end
+
+    FB.secret_create_joker("rainbow_mountain_range")
+
+    if FB.resolve_or_defer_queued_actions then
+        FB.resolve_or_defer_queued_actions(context or {})
+    end
+
+    return true
+end
+
+function FB.install_hidden_synergy_destroy_hooks()
+    if FB.hidden_synergy.destroy_hooks_installed then return end
+    FB.hidden_synergy.destroy_hooks_installed = true
+
+    if FB.queue_self_destroy then
+        local old_queue_self_destroy = FB.queue_self_destroy
+        FB.queue_self_destroy = function(card, ...)
+            if FB.is_joker_key and FB.is_joker_key(card, "dijiang") then
+                FB.secret_handle_dijiang_destroy(card, select(1, ...) or {})
+            end
+            return old_queue_self_destroy(card, ...)
+        end
+    end
+
+    if FB.queue_destroy then
+        local old_queue_destroy = FB.queue_destroy
+        FB.queue_destroy = function(card, ...)
+            if FB.is_joker_key and FB.is_joker_key(card, "dijiang") then
+                FB.secret_handle_dijiang_destroy(card, select(1, ...) or {})
+            end
+            return old_queue_destroy(card, ...)
+        end
+    end
+
+    if FB.destroy then
+        local old_destroy = FB.destroy
+        FB.destroy = function(card, ...)
+            if FB.is_joker_key and FB.is_joker_key(card, "dijiang") then
+                FB.secret_handle_dijiang_destroy(card, select(1, ...) or {})
+            end
+            return old_destroy(card, ...)
+        end
+    end
 end
 
 function FB.install_hidden_synergy_card_debuff_hook()
@@ -623,9 +719,17 @@ function FB.install_hidden_synergy_card_debuff_hook()
 
         if should_debuff
         and self
-        and self.debuff
-        and FB.secret_tianlu_heart_lock_true_form(self) then
+        and self.debuff then
             if self.juice_up then self:juice_up(0.5, 0.5) end
+
+            if FB.is_joker_key and FB.is_joker_key(self, "dijiang")
+            and FB.secret_pair_active
+            and FB.secret_pair_active("dijiang", "hundun") then
+                local hundun = FB.find_joker and FB.find_joker("hundun")
+                if hundun and not hundun.debuff then
+                    old_set_debuff(hundun, true)
+                end
+            end
         end
 
         return ret
@@ -673,7 +777,7 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
     -- Tianlu + Bixie: Tianlu stops eating money at blind start; Cintamani sales may evolve Tianlu.
     if key == "tianlu" and FB.secret_synergy_active(card, "bixie") then
         if context.setting_blind and not context.blueprint then
-            local d = math.max(0, FB.num and FB.num(G.GAME.dollars, 0) or (G.GAME.dollars or 0))
+            local d = FB.secret_nonnegative_number(G.GAME and G.GAME.dollars, 0)
 
             card.ability.extra.xchips = (card.ability.extra.xchips or 1) + d * 0.1
 
@@ -799,8 +903,7 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
 
         if dijiang_self_destructing and not card.ability.fb_hundun_dijiang_destroyed then
             card.ability.fb_hundun_dijiang_destroyed = true
-            FB.secret_destroy_card(card, context)
-            FB.secret_create_joker("rainbow_mountain_range")
+            FB.secret_handle_dijiang_destroy(dijiang, context)
             return { message = "What a beaut!", colour = G.C.PURPLE, card = card }
         end
     end
@@ -808,7 +911,7 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
     if key == "dijiang" and FB.secret_synergy_active(card, "hundun") then
         if FB.is_scoring_individual(context) and context.other_card and context.other_card:is_suit("Hearts") then
             local ret = normal_return or {}
-            ret.mult = (ret.mult or 0) + math.max(0, FB.num and FB.num(hand_chips, 0) or (hand_chips or 0))
+            ret.mult = (ret.mult or 0) + FB.secret_nonnegative_number(hand_chips, 0)
             ret.card = ret.card or card
             normal_return = ret
         end
@@ -975,7 +1078,8 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
 end
 
 function FB.install_hidden_synergy_joker_wrapper()
-FB.install_hidden_synergy_card_debuff_hook()
+    FB.install_hidden_synergy_card_debuff_hook()
+    FB.install_hidden_synergy_destroy_hooks()
     if not (SMODS and SMODS.Joker) then return end
     if FB.hidden_synergy.wrapper_installed then return end
     FB.hidden_synergy.wrapper_installed = true
@@ -1050,3 +1154,4 @@ end
 
 FB.install_hidden_synergy_joker_wrapper()
 FB.install_hidden_synergy_card_debuff_hook()
+FB.install_hidden_synergy_destroy_hooks()

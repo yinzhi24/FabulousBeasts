@@ -8,6 +8,8 @@
 --- PREFIX: fb
 ----------------------------------------------
 
+FB = FB or {}
+
 SMODS.Atlas({
     key = "modicon",
     path = "modicon.png",
@@ -26,6 +28,7 @@ assert(SMODS.load_file("config.lua"))()
 
 assert(SMODS.load_file("util/helpers.lua"))()
 assert(SMODS.load_file("util/hidden_synergies.lua"))()
+assert(SMODS.load_file("util/baize.lua"))()
 assert(SMODS.load_file("challenges/challenge_rules.lua"))()
 
 assert(SMODS.load_file("jokers/common.lua"))()
@@ -33,6 +36,8 @@ assert(SMODS.load_file("jokers/uncommon.lua"))()
 assert(SMODS.load_file("jokers/rare.lua"))()
 assert(SMODS.load_file("jokers/legendary.lua"))()
 assert(SMODS.load_file("jokers/higher.lua"))()
+
+assert(SMODS.load_file("decks_sleeves/decks_sleeves.lua"))()
 
 assert(SMODS.load_file("blinds/blinds.lua"))()
 
@@ -53,7 +58,9 @@ assert(SMODS.load_file("challenges/base_after_base.lua"))()
 assert(SMODS.load_file("challenges/little_one.lua"))()
 assert(SMODS.load_file("challenges/little_two.lua"))()
 assert(SMODS.load_file("challenges/little_three.lua"))()
+assert(SMODS.load_file("challenges/out_of_the_spotlight.lua"))()
 assert(SMODS.load_file("challenges/ascension_to_heaven.lua"))()
+
 
 
 -- dev username for dev mode: Zinaidev0.2.0-alpha-06BCF5-FF6565-1B

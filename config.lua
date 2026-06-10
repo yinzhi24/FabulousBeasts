@@ -12,6 +12,10 @@ if mod_config.og_bilibili_colors == nil then
     mod_config.og_bilibili_colors = false
 end
 
+if mod_config.enable_japanese_mahjong_calls == nil then
+    mod_config.enable_japanese_mahjong_calls = false
+end
+
 FB.config = mod_config
 
 function FB.get_bilibili_pos()
@@ -42,6 +46,11 @@ SMODS.current_mod.config_tab = function()
                         label = "Use OG Bilibili Colors (restart required)",
                         ref_table = FB.config,
                         ref_value = "og_bilibili_colors"
+                    }),
+                    create_toggle({
+                        label = "Enable Japanese Mahjong Calls",
+                        ref_table = FB.config,
+                        ref_value = "enable_japanese_mahjong_calls"
                     })
                 }
             }

@@ -1,5 +1,48 @@
 ---@diagnostic disable: undefined-global
 -- Fabulous Beasts: Uncommon Jokers
+
+SMODS.Joker({
+    key = "ambrosia",
+    loc_txt = {
+        name = "Ambrosia",
+        text = {
+            "At end of round, fully {C:attention}recharge{}",
+            "all compatible Jokers",
+            "then {C:red}self destructs{}"
+        }
+    },
+    atlas = "jokers",
+    pos = {
+        x = 1,
+        y = 4
+    },
+    -- change sprite position
+    rarity = 2,
+    cost = 12,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+    calculate = function(self, card, context)
+        if FB.main_end_of_round_once(card, context, "fb_ambrosia_recharge")
+        and not context.blueprint then
+            local recharged = 0
+            for _,
+            joker in ipairs(FB.joker_cards()) do
+                if joker ~= card and FB.recharge_joker and FB.recharge_joker(joker) then
+                    recharged = recharged + 1
+                end
+            end
+            FB.queue_self_destroy(card)
+            FB.resolve_or_defer_queued_actions(context)
+            return {
+                message = recharged > 0 and "Recharged!" or "Nothing!",
+                colour = recharged > 0 and G.C.GREEN or G.C.RED,
+                card = card
+            }
+        end
+    end
+})
+
 SMODS.Joker({
     key = "bestiary",
     loc_txt = {
@@ -125,6 +168,82 @@ SMODS.Joker({
             return {
                 message = "Out!",
                 colour = G.C.RED,
+                card = card
+            }
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "coexistence",
+    loc_txt = {
+        name = "Coexistence",
+        text = {
+            "If every card in your deck is",
+            "{C:attention}unique{}, retrigger all",
+            "played cards {C:attention}once{}",
+            "{C:inactive}Checks rank, suit, enhancement,",
+            "{C:inactive}seal, and edition{}"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 1, y = 4 }, -- change sprite slot
+    rarity = 2,
+    cost = 8,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+    config = {
+        extra = {
+            repetitions = 1
+        }
+    },
+    calculate = function(self, card, context)
+        local function card_signature(c)
+            if not c then return "nil" end
+
+            local center = c.config and c.config.center and c.config.center.key or "none"
+            local seal = c.seal or "none"
+
+            local edition = "none"
+            if c.edition then
+                if c.edition.negative then edition = "negative"
+                elseif c.edition.foil then edition = "foil"
+                elseif c.edition.holo then edition = "holo"
+                elseif c.edition.polychrome then edition = "polychrome"
+                else edition = "edition"
+                end
+            end
+
+            return table.concat({
+                tostring(c.base and c.base.value or c:get_id() or "rank"),
+                tostring(c.base and c.base.suit or "suit"),
+                tostring(center),
+                tostring(seal),
+                tostring(edition)
+            }, "|")
+        end
+
+        local function deck_is_unique()
+            if not G.playing_cards then return false end
+
+            local seen = {}
+            for _, c in ipairs(G.playing_cards) do
+                local sig = card_signature(c)
+                if seen[sig] then
+                    return false
+                end
+                seen[sig] = true
+            end
+
+            return true
+        end
+
+        if FB.is_card_repetition(context)
+        and context.cardarea == G.play
+        and deck_is_unique() then
+            return {
+                repetitions = card.ability.extra.repetitions or 1,
                 card = card
             }
         end
@@ -852,6 +971,67 @@ SMODS.Joker({
 })
 
 SMODS.Joker({
+    key = "past_experience",
+    loc_txt = {
+        name = "Past Experience",
+        text = {
+            "{X:mult,C:white}X#1#{} Mult",
+            "After each played hand,",
+            "lose {X:mult,C:white}X#2#{} Mult"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 2, y = 4 },
+    rarity = 2,
+    cost = 8,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+
+    config = {
+        extra = {
+            xmult = 2,
+            loss = 0.1,
+            min_xmult = 1
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        local extra = card.ability.extra
+        return {
+            vars = {
+                string.format("%.1f", extra.xmult or 2),
+                extra.loss or 0.1
+            }
+        }
+    end,
+
+    calculate = function(self, card, context)
+        local extra = card.ability.extra
+
+        if FB.is_scoring_joker_main(context) then
+            return {
+                x_mult = extra.xmult or 2,
+                card = card
+            }
+        end
+
+        if context.after and not context.blueprint then
+            extra.xmult = math.max(
+                extra.min_xmult or 1,
+                (extra.xmult or 2) - (extra.loss or 0.1)
+            )
+
+            return {
+                message = "-X" .. tostring(extra.loss or 0.1),
+                colour = G.C.RED,
+                card = card
+            }
+        end
+    end
+})
+
+SMODS.Joker({
     key = "paw_hole_cave",
     loc_txt = {
         name = "Paw Hole Cave",
@@ -1034,6 +1214,53 @@ SMODS.Joker({
 })
 
 SMODS.Joker({
+    key = "rubbing_walnuts",
+    loc_txt = {
+        name = "Rubbing Walnuts",
+        text = {
+            "{C:attention}Retrigger{} each played card",
+            "once for each {C:attention}exact duplicate{}",
+            "in played hand",
+            "{C:inactive}Exact: rank, suit, enhancement,",
+            "{C:inactive}seal, edition, and bonuses{}"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 0, y = 6 }, -- change sprite pos
+    rarity = 2,
+    cost = 7,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+
+    calculate = function(self, card, context)
+        if FB.is_card_repetition(context)
+        and context.cardarea == G.play
+        and context.other_card
+        and G.play
+        and G.play.cards then
+            local sig = FB.card_unique_signature(context.other_card)
+            local duplicates = 0
+
+            for _, played_card in ipairs(G.play.cards) do
+                if played_card ~= context.other_card
+                and FB.card_unique_signature(played_card) == sig then
+                    duplicates = duplicates + 1
+                end
+            end
+
+            if duplicates > 0 then
+                return {
+                    message = localize("k_again_ex"),
+                    repetitions = duplicates,
+                    card = card
+                }
+            end
+        end
+    end
+})
+
+SMODS.Joker({
     key = "teapot",
     loc_txt = {
         name = "Teapot",
@@ -1159,6 +1386,569 @@ SMODS.Joker({
         if FB.is_scoring_joker_main(context) then
             return {
                 x_mult = math.max(0, extra.xmult or 4),
+                card = card
+            }
+        end
+    end
+})
+
+FB.mahjong_table_calls = FB.mahjong_table_calls or {
+    chinese = {
+        normal = {
+            ["High Card"] = {"Dan Diao!"},
+            ["Pair"] = {"Dui Zi!"},
+            ["Two Pair"] = {"Liang Dui!"},
+            ["Three of a Kind"] = {"Peng!"},
+            ["Straight"] = {"Chi!", "Shun Zi!"},
+            ["Flush"] = {"Qing Yi Se!"},
+            ["Full House"] = {"Peng Peng Hu!"},
+            ["Four of a Kind"] = {"Gang!"},
+            ["Straight Flush"] = {"Yi Tiao Long!"},
+            ["Five of a Kind"] = {"Wu Zhang!"},
+            ["Flush House"] = {"Hun Yi Se!"},
+            ["Flush Five"] = {"Qing Yi Se Da Dui!"},
+            ["Flush Six"] = {"Liu Tong Qing Yi Se!"},
+            ["Super Straight Flush"] = {"Chang Yi Tiao Long!"},
+            ["Six of a Kind"] = {"Liu Tong!"},
+            ["Flush Party"] = {"Qing Yi Se Da Peng Hu!"},
+            ["Flush Double Triple"] = {"Qing Yi Se Shuang Peng!"},
+            ["Flush Three Pair"] = {"Qing Yi Se San Dui!"},
+            ["House Party"] = {"Da Peng Hu!"},
+            ["Double Triple"] = {"Shuang Peng!"},
+            ["Super Flush"] = {"Chang Qing Yi Se!"},
+            ["Super Straight"] = {"Chang Shun Zi!"},
+            ["Three Pair"] = {"San Dui!"},
+        },
+
+        one_shot_no_discards = {
+            "Tian Hu!",
+            "Shi San Yao!",
+            "Da San Yuan!"
+        },
+
+        -- If you discarded at least once, then one-shot the Blind.
+        one_shot_with_discards = {
+            ["High Card"] = {"Di Hu!"},
+            ["Pair"] = {"Di Hu!"},
+            ["Two Pair"] = {"Di Hu!"},
+            ["Three of a Kind"] = {"Di Hu!"},
+            ["Straight"] = {"Di Hu!"},
+            ["Flush"] = {"Di Hu!"},
+            ["Full House"] = {"Di Hu!"},
+            ["Four of a Kind"] = {"Di Hu!"},
+            ["Straight Flush"] = {"Di Hu!"},
+            ["Five of a Kind"] = {"Di Hu!"},
+            ["Flush House"] = {"Di Hu!"},
+            ["Flush Five"] = {"Di Hu!"},
+            ["Flush Six"] = {"Di Hu!"},
+            ["Super Straight Flush"] = {"Di Hu!"},
+            ["Six of a Kind"] = {"Di Hu!"},
+            ["Flush Party"] = {"Di Hu!"},
+            ["Flush Double Triple"] = {"Di Hu!"},
+            ["Flush Three Pair"] = {"Di Hu!"},
+            ["House Party"] = {"Di Hu!"},
+            ["Double Triple"] = {"Di Hu!"},
+            ["Super Flush"] = {"Di Hu!"},
+            ["Super Straight"] = {"Di Hu!"},
+            ["Three Pair"] = {"Di Hu!"},
+        }
+    },
+
+    japanese = {
+        normal = {
+            ["High Card"] = {"Tanki!"},
+            ["Pair"] = {"Toitsu!"},
+            ["Two Pair"] = {"Chiitoi-ish!"},
+            ["Three of a Kind"] = {"Pon!"},
+            ["Straight"] = {"Chii!", "Shuntsu!"},
+            ["Flush"] = {"Chinitsu!"},
+            ["Full House"] = {"Toitoi!"},
+            ["Four of a Kind"] = {"Kan!"},
+            ["Straight Flush"] = {"Ittsuu!"},
+            ["Five of a Kind"] = {"Yakuman?!"},
+            ["Flush House"] = {"Honitsu!"},
+            ["Flush Five"] = {"Double Yakuman?!"},
+            ["Flush Six"] = {"Roku Douitsu Chinitsu!"},
+            ["Super Straight Flush"] = {"Chou Ittsuu!"},
+            ["Six of a Kind"] = {"Rokukoutsu?!"},
+            ["Flush Party"] = {"Da Toitoi Chinitsu!"},
+            ["Flush Double Triple"] = {"Ryan Koutsu Chinitsu!"},
+            ["Flush Three Pair"] = {"San Toitsu Chinitsu!"},
+            ["House Party"] = {"Da Toitoi!"},
+            ["Double Triple"] = {"Ryan Koutsu!"},
+            ["Super Flush"] = {"Naga Chinitsu!"},
+            ["Super Straight"] = {"Naga Shuntsu!"},
+            ["Three Pair"] = {"San Toitsu!"},
+        },
+
+        one_shot_no_discards = {
+            "Tenhou!",
+            "Kokushi Musou!",
+            "Daisangen!",
+            "Suuankou!"
+        },
+
+        one_shot_with_discards = {
+            ["High Card"] = {"Chiihou!"},
+            ["Pair"] = {"Chiihou!"},
+            ["Two Pair"] = {"Chiihou!"},
+            ["Three of a Kind"] = {"Chiihou!"},
+            ["Straight"] = {"Chiihou!"},
+            ["Flush"] = {"Chiihou!"},
+            ["Full House"] = {"Chiihou!"},
+            ["Four of a Kind"] = {"Chiihou!"},
+            ["Straight Flush"] = {"Chiihou!"},
+            ["Five of a Kind"] = {"Chiihou!"},
+            ["Flush House"] = {"Chiihou!"},
+            ["Flush Five"] = {"Chiihou!"},
+            ["Flush Six"] = {"Chiihou!"},
+            ["Super Straight Flush"] = {"Chiihou!"},
+            ["Six of a Kind"] = {"Chiihou!"},
+            ["Flush Party"] = {"Chiihou!"},
+            ["Flush Double Triple"] = {"Chiihou!"},
+            ["Flush Three Pair"] = {"Chiihou!"},
+            ["House Party"] = {"Chiihou!"},
+            ["Double Triple"] = {"Chiihou!"},
+            ["Super Flush"] = {"Chiihou!"},
+            ["Super Straight"] = {"Chiihou!"},
+            ["Three Pair"] = {"Chiihou!"},
+        }
+    }
+}
+
+function FB.mahjong_table_current_style()
+    return (FB.config and FB.config.enable_japanese_mahjong_calls)
+        and "japanese"
+        or "chinese"
+end
+
+function FB.mahjong_table_style_name()
+    return (FB.mahjong_table_current_style() == "japanese")
+        and "Japanese"
+        or "Chinese"
+end
+
+function FB.mahjong_table_pick_call(hand_name, one_shot, used_discards)
+    local style = FB.mahjong_table_current_style()
+    local data = FB.mahjong_table_calls[style] or FB.mahjong_table_calls.chinese
+
+    local pool = nil
+
+    if one_shot and used_discards then
+        pool = data.one_shot_with_discards and data.one_shot_with_discards[hand_name]
+    elseif one_shot and not used_discards then
+        pool = data.one_shot_no_discards
+    end
+
+    pool = pool or (data.normal and data.normal[hand_name]) or {"Mahjong!"}
+
+    return pseudorandom_element(
+        pool,
+        pseudoseed("fb_mahjong_table_" .. tostring(hand_name or "unknown"))
+    )
+end
+
+function FB.mahjong_table_hand_name_from_context(context)
+    if context and type(context.scoring_name) == "string" then
+        return context.scoring_name
+    end
+
+    if G and G.GAME and G.GAME.current_round
+    and G.GAME.current_round.current_hand
+    and type(G.GAME.current_round.current_hand.handname) == "string" then
+        return G.GAME.current_round.current_hand.handname
+    end
+
+    if context and type(context.poker_hands) == "table" then
+        local priority = {
+            "Flush Six",
+            "Super Straight Flush",
+            "Six of a Kind",
+            "Flush Party",
+            "Flush Double Triple",
+            "Flush Three Pair",
+            "House Party",
+            "Double Triple",
+            "Super Flush",
+            "Super Straight",
+            "Three Pair",
+            "Flush Five",
+            "Flush House",
+            "Five of a Kind",
+            "Straight Flush",
+            "Four of a Kind",
+            "Full House",
+            "Flush",
+            "Straight",
+            "Three of a Kind",
+            "Two Pair",
+            "Pair",
+            "High Card"
+        }
+
+        for _, name in ipairs(priority) do
+            if context.poker_hands[name] then
+                return name
+            end
+        end
+
+        for name, value in pairs(context.poker_hands) do
+            if value then
+                return name
+            end
+        end
+    end
+
+    return "High Card"
+end
+
+function FB.mahjong_table_pick_call(hand_name, one_shot, used_discards)
+    local style = FB.mahjong_table_current_style()
+    local data = FB.mahjong_table_calls[style] or FB.mahjong_table_calls.chinese
+
+    local pool
+
+    if one_shot and used_discards then
+        pool = data.one_shot_with_discards and data.one_shot_with_discards[hand_name]
+    elseif one_shot and not used_discards then
+        pool = data.one_shot_no_discards
+    end
+
+    pool = pool or (data.normal and data.normal[hand_name])
+    pool = pool or (data.normal and data.normal["High Card"])
+    pool = pool or {"Mahjong!"}
+
+    return pseudorandom_element(
+        pool,
+        pseudoseed("fb_mahjong_table_" .. tostring(hand_name))
+    )
+end
+
+function FB.mahjong_table_apply_bonuses(card)
+    if not (G and G.GAME and card and card.ability) then return end
+    if card.ability.fb_mahjong_table_applied then return end
+
+    card.ability.fb_mahjong_table_applied = true
+
+    -- +1 card selection limit
+    if G.hand and G.hand.config then
+        G.hand.config.highlighted_limit = (G.hand.config.highlighted_limit or 5) + 1
+    end
+
+    if SMODS and SMODS.change_play_limit then
+        SMODS.change_play_limit(1)
+    end
+
+    if SMODS and SMODS.change_discard_limit then
+        SMODS.change_discard_limit(1)
+    end
+
+    -- +1 hand size
+    if FB.safe_change_hand_size then
+        FB.safe_change_hand_size(1)
+    elseif G.hand and G.hand.change_size then
+        G.hand:change_size(1)
+    end
+
+    -- +1 discard
+    if G.GAME.round_resets then
+        G.GAME.round_resets.discards = (G.GAME.round_resets.discards or 0) + 1
+    end
+
+    if G.GAME.current_round then
+        G.GAME.current_round.discards_left = (G.GAME.current_round.discards_left or 0) + 1
+    end
+
+    -- -1 hand
+    if G.GAME.round_resets then
+        G.GAME.round_resets.hands = math.max(0, (G.GAME.round_resets.hands or 1) - 1)
+    end
+
+    if G.GAME.current_round then
+        G.GAME.current_round.hands_left = math.max(0, (G.GAME.current_round.hands_left or 1) - 1)
+    end
+
+    -- -1 Joker slot because Mahjong Table takes up 2 slots total.
+    if FB.safe_change_joker_slots then
+        FB.safe_change_joker_slots(-1)
+    elseif G.jokers and G.jokers.config then
+        G.jokers.config.card_limit = math.max(0, (G.jokers.config.card_limit or 1) - 1)
+    end
+end
+
+function FB.mahjong_table_remove_bonuses(card)
+    if not (G and G.GAME and card and card.ability) then return end
+    if not card.ability.fb_mahjong_table_applied then return end
+
+    card.ability.fb_mahjong_table_applied = nil
+
+    if G.hand and G.hand.config then
+        G.hand.config.highlighted_limit = math.max(5, (G.hand.config.highlighted_limit or 6) - 1)
+    end
+
+    if SMODS and SMODS.change_play_limit then
+        SMODS.change_play_limit(-1)
+    end
+
+    if SMODS and SMODS.change_discard_limit then
+        SMODS.change_discard_limit(-1)
+    end
+
+    if FB.safe_change_hand_size then
+        FB.safe_change_hand_size(-1)
+    elseif G.hand and G.hand.change_size then
+        G.hand:change_size(-1)
+    end
+
+    if G.GAME.round_resets then
+        G.GAME.round_resets.discards = math.max(0, (G.GAME.round_resets.discards or 1) - 1)
+        G.GAME.round_resets.hands = (G.GAME.round_resets.hands or 0) + 1
+    end
+
+    if G.GAME.current_round then
+        G.GAME.current_round.discards_left = math.max(0, (G.GAME.current_round.discards_left or 1) - 1)
+        G.GAME.current_round.hands_left = (G.GAME.current_round.hands_left or 0) + 1
+    end
+
+    if FB.safe_change_joker_slots then
+        FB.safe_change_joker_slots(1)
+    elseif G.jokers and G.jokers.config then
+        G.jokers.config.card_limit = (G.jokers.config.card_limit or 0) + 1
+    end
+end
+
+SMODS.Joker({
+    key = "mahjong_table",
+    loc_txt = {
+        name = "Mahjong Table",
+        text = {
+            "{C:attention}+1{} card selection limit",
+            "{C:attention}+1{} hand size, {C:attention}+1{} discard",
+            "{C:red}-1{} hand, {C:red}-1{} Joker slot",
+            "{C:inactive}Call style: #1# Mahjong{}"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 3, y = 6 }, -- change sprite pos
+    rarity = 2,
+    cost = 7,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {}
+    },
+
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                FB.mahjong_table_style_name()
+            }
+        }
+    end,
+
+    add_to_deck = function(self, card, from_debuff)
+        FB.mahjong_table_apply_bonuses(card)
+    end,
+
+    remove_from_deck = function(self, card, from_debuff)
+        FB.mahjong_table_remove_bonuses(card)
+    end,
+
+    calculate = function(self, card, context)
+        if context.before and not context.blueprint then
+            card.ability.extra.fb_mahjong_last_hand =
+                FB.mahjong_table_hand_name_from_context(context)
+
+            card.ability.extra.fb_mahjong_discards_used =
+                G.GAME
+                and G.GAME.current_round
+                and (G.GAME.current_round.discards_used or 0)
+                or 0
+        end
+
+        if context.after and not context.blueprint then
+            local hand_name =
+                card.ability.extra.fb_mahjong_last_hand
+                or FB.mahjong_table_hand_name_from_context(context)
+
+            local blind_chips = G.GAME and G.GAME.blind and G.GAME.blind.chips or math.huge
+            local current_chips = G.GAME and G.GAME.chips or 0
+
+            local one_shot
+
+            if to_big then
+                one_shot = to_big(current_chips) >= to_big(blind_chips)
+            else
+                one_shot = current_chips >= blind_chips
+            end
+
+            local used_discards =
+                (card.ability.extra.fb_mahjong_discards_used or 0) > 0
+
+            return {
+                message = FB.mahjong_table_pick_call(hand_name, one_shot, used_discards),
+                colour = G.C.PURPLE,
+                card = card
+            }
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "tea_table",
+    loc_txt = {
+        name = "Tea Table",
+        text = {
+            "{C:attention}Retrigger{} {C:attention}Teapot{}",
+            "and {C:attention}Teacup{} once"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 1, y = 6 }, -- change sprite pos
+    rarity = 2,
+    cost = 7,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+
+    calculate = function(self, card, context)
+        if context
+        and context.retrigger_joker_check
+        and context.other_card
+        and context.other_card ~= card
+        and not context.end_of_round
+        and not context.setting_blind
+        and not context.before
+        and not context.after
+        and not context.selling_card
+        and not context.selling_self
+        and not context.destroy_card
+        and not context.remove_playing_cards
+        and (
+            FB.is_joker_key(context.other_card, "teapot")
+            or FB.is_joker_key(context.other_card, "teacup")
+        )
+        and FB.once_joker_retrigger(card, context, "tea_table") then
+            return {
+                message = localize("k_again_ex"),
+                repetitions = 1,
+                card = card
+            }
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "vending_machine",
+    loc_txt = {
+        name = "Vending Machine",
+        text = {
+            "At blind start, pay {C:money}$#1#{}",
+            "to create a random {C:attention}Food{} Joker",
+            "{C:red}Self destructs{} if you have less than {C:money}$#1#{}",
+            "{C:green}#2# in #3#{} chance to {C:red}explode{} after use"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 2, y = 6 }, -- change sprite pos
+    rarity = 2,
+    cost = 8,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {
+            cost = 5,
+            odds_num = 1,
+            odds_den = 12
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.cost or 5,
+                card.ability.extra.odds_num or 1,
+                card.ability.extra.odds_den or 12
+            }
+        }
+    end,
+
+    calculate = function(self, card, context)
+        if context.setting_blind and not context.blueprint then
+            local extra = card.ability.extra
+            local price = extra.cost or 5
+
+            -- Talisman-safe money comparison
+            local dollars = G.GAME and G.GAME.dollars or 0
+            local can_pay = false
+
+            if to_big then
+                can_pay = to_big(dollars) >= to_big(price)
+            else
+                can_pay = dollars >= price
+            end
+
+            if not can_pay then
+                FB.queue_self_destroy(card)
+                FB.resolve_or_defer_queued_actions(context)
+
+                return {
+                    message = "Out of order!",
+                    colour = G.C.RED,
+                    card = card
+                }
+            end
+
+            FB.try_add_dollars(-price)
+
+            local created = nil
+
+            if FB.create_random_food_joker then
+                created = FB.create_random_food_joker("vending_machine")
+            elseif FB.random_food_joker_key and SMODS and SMODS.add_card then
+                local food_key = FB.random_food_joker_key()
+
+                if food_key then
+                    created = SMODS.add_card({
+                        set = "Joker",
+                        key = food_key,
+                        area = G.jokers
+                    })
+                end
+            elseif FB.create_joker then
+                created = FB.create_joker("food")
+            end
+
+            local explode = false
+
+            if FB.roll then
+                explode = FB.roll(
+                    "vending_machine_explode",
+                    extra.odds_num or 1,
+                    extra.odds_den or 12
+                )
+            else
+                explode = pseudorandom("vending_machine_explode") < ((extra.odds_num or 1) / (extra.odds_den or 12))
+            end
+
+            if explode then
+                FB.queue_self_destroy(card)
+                FB.resolve_or_defer_queued_actions(context)
+
+                return {
+                    message = "BOOM!",
+                    colour = G.C.RED,
+                    card = card
+                }
+            end
+
+            return {
+                message = created and "Snack!" or "Nothing!",
+                colour = created and G.C.GREEN or G.C.RED,
                 card = card
             }
         end

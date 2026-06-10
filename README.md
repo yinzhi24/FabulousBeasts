@@ -2,18 +2,17 @@
 A Chinese mythology inspired content expansion mod for Balatro. Based on [Fabulous Beasts](https://www.youtube.com/watch?v=GY3jg2heY30) (the manga and anime)
 
 ## Current Version
-Current version: `0.2.0-alpha`
+Current version: `0.3.0-alpha`
 This is an alpha release.
 This version added:
-* 8 unique vouchers
-* 8 booster packs
 * More challenges
-* Secret interactions!
-* Legendary jokers got a background recolor!
+* A new decks and sleeve!
+* New hands!
+* More jokers!
 * The usual bug fixes, reworks, and balance changes
 
 ## Next Planned Update
-`0.3.0-alpha` will be the next update if no additional patches are required. This update will add more challenges, custom decks and sleeves, maybe some more jokers, along with bug fixes and improvements
+`0.3.0-beta` will be the next update if no additional patches are required. This update will add consolidate the mod and focus specifically on bug fixes and playability. More content will be added
 
 ## Features
 * 100+ custom Jokers
@@ -123,14 +122,14 @@ Note that some jokers are intentionally unbalanced
 
 ## FAQ
 ### Is there a Discord server?
-Not yet. There will likely be a Discord server for the mod in the future
+Yes! It's still under some construction. You'll also get a chance to meet me and other people who are also interested in this mod! Here's the link: https://discord.gg/pygmjvxGqS
 
 ### Is Talisman required?
 Yes. There are features in this mod that require Talisman
 
 ### Will there be localization?
-Yes, but currently only Simplified and Traditional Chinese are planned.
-If you would like to help with localization, feel free to DM me on Discord.
+Yes, but currently only Simplified and Traditional Chinese are planned
+If you would like to help with localization, feel free to DM me on Discord
 
 ### What's your Discord username?
 Keep reading. It's somewhere in here :)

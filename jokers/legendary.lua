@@ -1,6 +1,74 @@
 ---@diagnostic disable: undefined-global
 -- Fabulous Beasts: Legendary Jokers
 SMODS.Joker({
+    key = "baize",
+
+    loc_txt = {
+        name = "Baize",
+        text = {
+            "I know many things.",
+            "Hover me in different places",
+            "to hear different advice."
+        }
+    },
+
+    atlas = "jokers",
+    pos = {
+        x = 11,
+        y = 13
+    },
+
+    rarity = 4,
+    cost = 25,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {
+            fb_baize_cache = {}
+        }
+    },
+
+    in_pool = function(self, args)
+        return G.GAME
+            and G.GAME.used_vouchers
+            and G.GAME.used_vouchers.v_fb_true_sight
+    end,
+
+    loc_vars = function(self, info_queue, card)
+        if FB and FB.baize_apply_text then
+            FB.baize_apply_text(card)
+        end
+
+        return {
+            vars = {}
+        }
+    end,
+
+    calculate = function(self, card, context)
+        if context.end_of_round
+        and not context.individual
+        and not context.repetition
+        and not context.blueprint then
+            card.ability.extra.fb_baize_cache = {}
+        end
+
+        if context.setting_blind
+        and not context.blueprint
+        and G.GAME
+        and G.GAME.blind
+        and G.GAME.blind.boss then
+            return {
+                message = "I know this one.",
+                colour = G.C.PURPLE,
+                card = card
+            }
+        end
+    end
+})
+
+SMODS.Joker({
     key = "bajin",
     loc_txt = {
         name = "Bajin",

@@ -5,7 +5,7 @@
   "description": "A mod that expands some vanilla features and based on Fabulous Beasts",
   "prefix": "fb",
   "main_file": "main.lua",
-  "priority": 0,
+  "priority": 10,
   "badge_colour": "06BCF5",
   "badge_text_colour": "FF6565",
   "display_name": "Fabulous Beasts"

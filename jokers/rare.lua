@@ -61,43 +61,68 @@ SMODS.Joker({
 })
 
 SMODS.Joker({
-    key = "ambrosia",
+    key = "ambrosia_blender",
     loc_txt = {
-        name = "Ambrosia",
+        name = "Ambrosia Blender",
         text = {
-            "At end of round, fully {C:attention}recharge{}",
-            "all compatible Jokers",
-            "then {C:red}self destructs{}"
+            "Stores added {C:chips}Chips{} and {C:mult}Mult{}",
+            "At blind start, every {C:attention}#2#{}",
+            "progress creates {C:attention}Ambrosia{}",
+            "{C:inactive}Progress: #1#/#2#{}"
         }
     },
     atlas = "jokers",
-    pos = {
-        x = 1,
-        y = 8
-    },
-    -- change sprite position
+    pos = { x = 2, y = 9 },
     rarity = 3,
-    cost = 12,
+    cost = 9,
     discovered = true,
     unlocked = true,
     blueprint_compat = false,
-    calculate = function(self, card, context)
-        if FB.main_end_of_round_once(card, context, "fb_ambrosia_recharge")
-        and not context.blueprint then
-            local recharged = 0
-            for _,
-            joker in ipairs(FB.joker_cards()) do
-                if joker ~= card and FB.recharge_joker and FB.recharge_joker(joker) then
-                    recharged = recharged + 1
-                end
-            end
-            FB.queue_self_destroy(card)
-            FB.resolve_or_defer_queued_actions(context)
-            return {
-                message = recharged > 0 and "Recharged!" or "Nothing!",
-                colour = recharged > 0 and G.C.GREEN or G.C.RED,
-                card = card
+
+    config = {
+        extra = {
+            progress = 0,
+            threshold = 10000,
+            max_progress = 999999
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        local e = card.ability.extra
+        return {
+            vars = {
+                math.floor(e.progress or 0),
+                e.threshold or 10000
             }
+        }
+    end,
+
+    calculate = function(self, card, context)
+        local e = card.ability.extra
+
+        if context.setting_blind and not context.blueprint then
+            local made = 0
+
+            while e.progress >= (e.threshold or 10000)
+            and G.jokers
+            and #G.jokers.cards < G.jokers.config.card_limit do
+                e.progress = e.progress - (e.threshold or 10000)
+
+                SMODS.add_card({
+                    key = "j_fb_ambrosia",
+                    area = G.jokers
+                })
+
+                made = made + 1
+            end
+
+            if made > 0 then
+                return {
+                    message = "+" .. made .. " Ambrosia",
+                    colour = G.C.GREEN,
+                    card = card
+                }
+            end
         end
     end
 })
@@ -246,39 +271,6 @@ SMODS.Joker({
         if FB.is_scoring_joker_main(context) then
             return {
                 chips = FB.num(extra.chips, 0),
-                card = card
-            }
-        end
-    end
-})
-
-SMODS.Joker({
-    key = "body_swap_mushroom",
-    loc_txt = {
-        name = "Body Swap Mushroom",
-        text = {
-            "Once, add current {C:chips}Chips{}",
-            "to {C:mult}Mult{}, then {C:red}destroy{} itself"
-        }
-    },
-    atlas = "jokers",
-    pos = {
-        x = 4,
-        y = 8
-    },
-    rarity = 3,
-    cost = 10,
-    discovered = true,
-    unlocked = true,
-    blueprint_compat = false,
-    calculate = function(self, card, context)
-        if FB.is_scoring_joker_main(context) and not context.blueprint then
-            local gain = math.max(0, FB.num(hand_chips, 0))
-            FB.queue_self_destroy(card)
-            FB.resolve_or_defer_queued_actions(context)
-            return {
-                mult = gain,
-                colour = G.C.MULT,
                 card = card
             }
         end
@@ -477,7 +469,7 @@ SMODS.Joker({
         end
         if FB.is_scoring_individual(context) and context.other_card and not context.other_card.fb_elixir_used then
             context.other_card.fb_elixir_used = true
-            local gain = math.max(1, FB.num(context.other_card: get_chip_bonus(), 0))
+            local gain = math.max(1, FB.num(context.other_card:get_chip_bonus(), 0))
             context.other_card.ability = context.other_card.ability or {}
             context.other_card.ability.perma_bonus =(context.other_card.ability.perma_bonus or 0) + gain
             return {
@@ -673,36 +665,6 @@ SMODS.Joker({
             local n = #(FB.joker_cards());
             return {
                 x_chips =(card.ability.extra.base or 1) + n *(card.ability.extra.gain or 0.5),
-                card = card
-            }
-        end
-    end
-})
-
-SMODS.Joker({
-    key = "interdimensional_cave",
-    loc_txt = {
-        name = "Interdimensional Cave",
-        text = {
-            "Gives random {C:chips}Chips{} and {C:mult}Mult{}",
-            "Higher values are significantly rarer"
-        }
-    },
-    atlas = "jokers",
-    pos = {
-        x = 13,
-        y = 8
-    },
-    rarity = 3,
-    cost = 11,
-    discovered = true,
-    unlocked = true,
-    blueprint_compat = true,
-    calculate = function(self, card, context)
-        if FB.is_scoring_joker_main(context) then
-            return {
-                chips = FB.normal_scaled_value('interdimensional_cave_chips', 500, 250),
-                mult = FB.normal_scaled_value('interdimensional_cave_mult', 20, 10),
                 card = card
             }
         end
@@ -1351,5 +1313,89 @@ SMODS.Joker({
     end,
     remove_from_deck = function(self, card, from_debuff)
         FB.safe_change_hand_size(-(card.ability.fb_underworld_hand_bonus or 0))
+    end
+})
+
+SMODS.Joker({
+    key = "failed_creations",
+    loc_txt = {
+        name = "Failed Creations",
+        text = {
+            "This Joker gains {X:mult,C:white}X#2#{} Mult",
+            "for this round for each",
+            "{C:attention}unscored{} played card",
+            "{C:inactive}Currently {X:mult,C:white}X#1#{} Mult{}"
+        }
+    },
+    atlas = "jokers",
+    pos = {
+        x = 3,
+        y = 9
+    },
+    rarity = 3,
+    cost = 9,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+    config = {
+        extra = {
+            xmult = 1,
+            gain = 0.25
+        }
+    },
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.xmult or 1,
+                card.ability.extra.gain or 0.25
+            }
+        }
+    end,
+    calculate = function(self, card, context)
+        local extra = card.ability.extra
+
+        -- Reset at the start of each blind/round.
+        if context.setting_blind and not context.blueprint then
+            extra.xmult = 1
+            return {
+                message = "Reset",
+                colour = G.C.RED,
+                card = card
+            }
+        end
+
+        -- Count played cards that are NOT in the scoring hand.
+        -- This intentionally anti-synergizes with Splash because Splash makes played cards score.
+        if context.before and not context.blueprint then
+            local scored = {}
+
+            for _, scored_card in ipairs(context.scoring_hand or {}) do
+                scored[scored_card] = true
+            end
+
+            local unscored = 0
+            for _, played_card in ipairs(context.full_hand or {}) do
+                if not scored[played_card] then
+                    unscored = unscored + 1
+                end
+            end
+
+            if unscored > 0 then
+                extra.xmult = (extra.xmult or 1) + unscored * (extra.gain or 0.25)
+
+                return {
+                    message = "+" .. tostring(unscored * (extra.gain or 0.25)) .. "X",
+                    colour = G.C.MULT,
+                    card = card
+                }
+            end
+        end
+
+        if FB.is_scoring_joker_main(context) then
+            return {
+                x_mult = extra.xmult or 1,
+                card = card
+            }
+        end
     end
 })

@@ -78,6 +78,50 @@ SMODS.Joker({
 })
 
 SMODS.Joker({
+    key = "all_star",
+    loc_txt = {
+        name = "All Star",
+        text = {
+            "Scored {C:attention}Aces{}",
+            "give {X:mult,C:white}X#1#{} Mult"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 1, y = 1 },
+    rarity = 1,
+    cost = 5,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+
+    config = {
+        extra = {
+            xmult = 1.1
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.xmult or 1.1
+            }
+        }
+    end,
+
+    calculate = function(self, card, context)
+        if context.individual
+        and context.cardarea == G.play
+        and context.other_card
+        and context.other_card:get_id() == 14 then
+            return {
+                x_mult = card.ability.extra.xmult or 1.1,
+                card = context.other_card
+            }
+        end
+    end
+})
+
+SMODS.Joker({
     key = "beijing_license_plate",
     loc_txt = {
         name = "Beijing License Plate",
@@ -105,7 +149,7 @@ SMODS.Joker({
         and not context.setting_blind
         and context.other_card
         and not context.other_card.debuff then
-            local bonus = FB.num(context.other_card: get_chip_bonus(), 0)
+            local bonus = FB.num(context.other_card:get_chip_bonus(), 0)
             if bonus ~= 0 then
                 return {
                     chips = bonus,
@@ -113,6 +157,39 @@ SMODS.Joker({
                     card = context.other_card
                 }
             end
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "body_swap_mushroom",
+    loc_txt = {
+        name = "Body Swap Mushroom",
+        text = {
+            "Once, add current {C:chips}Chips{}",
+            "to {C:mult}Mult{}, then {C:red}destroy{} itself"
+        }
+    },
+    atlas = "jokers",
+    pos = {
+        x = 4,
+        y = 1
+    },
+    rarity = 1,
+    cost = 10,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+    calculate = function(self, card, context)
+        if FB.is_scoring_joker_main(context) and not context.blueprint then
+            local gain = math.max(0, FB.num(hand_chips, 0))
+            FB.queue_self_destroy(card)
+            FB.resolve_or_defer_queued_actions(context)
+            return {
+                mult = gain,
+                colour = G.C.MULT,
+                card = card
+            }
         end
     end
 })
@@ -231,6 +308,66 @@ SMODS.Joker({
     remove_from_deck = function(self, card, from_debuff)
         if G.consumeables and G.consumeables.config then
             G.consumeables.config.card_limit = G.consumeables.config.card_limit - 1
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "casting_portrait",
+    loc_txt = {
+        name = "Casting Portrait",
+        text = {
+            "{C:mult}+#1#{} Mult for each",
+            "{C:attention}Vanilla Joker{} you have",
+            "{C:inactive}Currently {C:mult}+#2#{} Mult{}"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 0, y = 1 }, -- change sprite slot
+    rarity = 1,
+    cost = 5,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+    config = {
+        extra = {
+            mult_per_vanilla = 10
+        }
+    },
+    loc_vars = function(self, info_queue, card)
+        local n = 0
+        for _, joker in ipairs(G.jokers and G.jokers.cards or {}) do
+            local center = joker.config and joker.config.center
+            if center and center.set == "Joker"
+            and center.key
+            and not center.key:find("^j_fb_") then
+                n = n + 1
+            end
+        end
+
+        return {
+            vars = {
+                card.ability.extra.mult_per_vanilla,
+                n * card.ability.extra.mult_per_vanilla
+            }
+        }
+    end,
+    calculate = function(self, card, context)
+        if FB.is_scoring_joker_main(context) then
+            local n = 0
+            for _, joker in ipairs(G.jokers and G.jokers.cards or {}) do
+                local center = joker.config and joker.config.center
+                if center and center.set == "Joker"
+                and center.key
+                and not center.key:find("^j_fb_") then
+                    n = n + 1
+                end
+            end
+
+            return {
+                mult = n * card.ability.extra.mult_per_vanilla,
+                card = card
+            }
         end
     end
 })
@@ -410,7 +547,7 @@ SMODS.Joker({
         and context.scoring_hand
         and context.other_card == context.scoring_hand [1]
         and not context.other_card.debuff then
-            local bonus = FB.num(context.other_card: get_chip_bonus(), 0) *(card.ability.extra.chip_mult or 2)
+            local bonus = FB.num(context.other_card:get_chip_bonus(), 0) *(card.ability.extra.chip_mult or 2)
             if bonus ~= 0 then
                 return {
                     chips = bonus,
@@ -548,7 +685,7 @@ SMODS.Joker({
             card.ability.extra.current = 0
         end
         if FB.is_scoring_individual(context) and context.other_card and not context.blueprint then
-            card.ability.extra.current =(card.ability.extra.current or 0) +(context.other_card: get_chip_bonus() or 0)
+            card.ability.extra.current =(card.ability.extra.current or 0) +(context.other_card:get_chip_bonus() or 0)
         end
         if FB.is_scoring_joker_main(context) then
             if not context.blueprint then
@@ -838,6 +975,36 @@ SMODS.Joker({
             return {
                 message = "No target",
                 colour = G.C.INACTIVE,
+                card = card
+            }
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "interdimensional_cave",
+    loc_txt = {
+        name = "Interdimensional Cave",
+        text = {
+            "Gives random {C:chips}Chips{} and {C:mult}Mult{}",
+            "Higher values are significantly rarer"
+        }
+    },
+    atlas = "jokers",
+    pos = {
+        x = 13,
+        y = 1
+    },
+    rarity = 1,
+    cost = 11,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+    calculate = function(self, card, context)
+        if FB.is_scoring_joker_main(context) then
+            return {
+                chips = FB.normal_scaled_value('interdimensional_cave_chips', 500, 250),
+                mult = FB.normal_scaled_value('interdimensional_cave_mult', 20, 10),
                 card = card
             }
         end
@@ -1158,8 +1325,8 @@ SMODS.Joker({
         local extra = card.ability.extra
         -- Apply default curse first.
         G.jokers.config.card_limit = G.jokers.config.card_limit +(extra.joker_slots or - 1)
-        G.consumeables.config.card_limit = G.consumeables.config.card_limit +(extra.consumable_slots or - 1)
-        G.hand: change_size(extra.hand_size or - 1)
+        G.consumeables.config.card_limit = G.consumeables.config.card_limit +(extra.consumable_slots or -1)
+        G.hand:change_size(extra.hand_size or -1)
         card_eval_status_text(card, 'extra', nil, nil, nil, {
             message = "Whoops!",
             colour = G.C.RED
@@ -1200,7 +1367,7 @@ SMODS.Joker({
             -- Add +2 to each so the final owned effect becomes +1/+1/+1.
             G.jokers.config.card_limit = G.jokers.config.card_limit + 2
             G.consumeables.config.card_limit = G.consumeables.config.card_limit + 2
-            G.hand: change_size(2)
+            G.hand:change_size(2)
             extra.joker_slots = 1
             extra.consumable_slots = 1
             extra.hand_size = 1
@@ -1225,7 +1392,7 @@ SMODS.Joker({
         local extra = card.ability.extra
         G.jokers.config.card_limit = G.jokers.config.card_limit -(extra.joker_slots or - 1)
         G.consumeables.config.card_limit = G.consumeables.config.card_limit -(extra.consumable_slots or - 1)
-        G.hand: change_size(-(extra.hand_size or - 1))
+        G.hand:change_size(-(extra.hand_size or -1))
     end
 })
 
@@ -1271,7 +1438,7 @@ SMODS.Joker({
             }
         end
         if FB.is_scoring_individual(context) and not context.blueprint then
-            card.ability.extra.chips = card.ability.extra.chips +(context.other_card: get_chip_bonus() or 0)
+            card.ability.extra.chips = card.ability.extra.chips +(context.other_card:get_chip_bonus() or 0)
         end
         if FB.is_card_repetition(context) and context.cardarea == G.play and context.scoring_name == card.ability.extra.hand then
             return {
@@ -1635,6 +1802,50 @@ SMODS.Joker({
                     remove = true
                 }
             end
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "underdog",
+    loc_txt = {
+        name = "Underdog",
+        text = {
+            "Scored {C:attention}2s{} give",
+            "{C:mult}+#1#{} Mult"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 0, y = 1 },
+    rarity = 1,
+    cost = 4,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = true,
+
+    config = {
+        extra = {
+            mult = 12
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.mult or 12
+            }
+        }
+    end,
+
+    calculate = function(self, card, context)
+        if context.individual
+        and context.cardarea == G.play
+        and context.other_card
+        and context.other_card:get_id() == 2 then
+            return {
+                chips = card.ability.extra.mult or 12,
+                card = context.other_card
+            }
         end
     end
 })
