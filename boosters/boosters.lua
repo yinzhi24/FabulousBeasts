@@ -247,20 +247,77 @@ function FB.food_pack_weights()
 end
 
 function FB.weighted_choice(weights, seed)
+    -- Normal call shape:
+    --   FB.weighted_choice({ A = 10, B = 5 }, "seed")
+    --
+    -- Crash-proofing:
+    -- Some helper code accidentally calls this as:
+    --   FB.weighted_choice("seed", { ...weights... })
+    -- If that happens, swap the arguments instead of crashing on pairs("seed").
+    if type(weights) ~= "table" and type(seed) == "table" then
+        weights, seed = seed, weights
+    end
+
+    if type(weights) ~= "table" then
+        print("[Fabulous Beasts] weighted_choice got non-table weights: " .. tostring(weights))
+        return nil
+    end
+
+    local entries = {}
     local total = 0
-    for _, weight in pairs(weights) do
-        total = total + weight
+
+    local function add_entry(key, weight)
+        weight = tonumber(weight) or 0
+        if key ~= nil and weight > 0 then
+            entries[#entries + 1] = {
+                key = key,
+                weight = weight
+            }
+            total = total + weight
+        end
+    end
+
+    -- Supports array-style weights:
+    -- {
+    --   { key = "common", weight = 88 },
+    --   { key = "uncommon", weight = 22 },
+    -- }
+    if #weights > 0 then
+        for i, entry in ipairs(weights) do
+            if type(entry) == "table" then
+                add_entry(
+                    entry.key or entry.value or entry.center or entry[1] or i,
+                    entry.weight or entry.w or entry[2] or 0
+                )
+            else
+                -- Fallback for {"a", "b", "c"} style lists.
+                add_entry(entry, 1)
+            end
+        end
+    else
+        -- Supports map-style weights:
+        -- { Planet = 35, Tarot = 35, Spectral = 10, FoodJoker = 20 }
+        for key, weight in pairs(weights) do
+            add_entry(key, weight)
+        end
+    end
+
+    if total <= 0 then
+        print("[Fabulous Beasts] weighted_choice total weight was 0 for seed: " .. tostring(seed))
+        return nil
     end
 
     local roll = pseudorandom(seed or "fb_weighted_choice") * total
     local current = 0
 
-    for key, weight in pairs(weights) do
-        current = current + weight
+    for _, entry in ipairs(entries) do
+        current = current + entry.weight
         if roll <= current then
-            return key
+            return entry.key
         end
     end
+
+    return entries[#entries] and entries[#entries].key or nil
 end
 
 function FB.center_key_variants(key)

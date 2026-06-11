@@ -1511,3 +1511,41 @@ function SMODS.calculate_effect(effect, scored_card, key)
 
     return FB._ambrosia_blender_calculate_effect_ref(effect, scored_card, key)
 end
+
+-- Divine helper: SCP-458 creates random Food Jokers,
+-- with a less than 1% chance to create another SCP-458.
+function FB.divine_create_food_or_self(seed)
+    seed = seed or "fb_scp_458"
+
+    if not (G and G.jokers) then
+        return false
+    end
+
+    -- Less than 1% chance, exactly your intended "rare self-copy" behavior.
+    -- This avoids using weighted_choice entirely, so argument order can't explode again.
+    if pseudorandom(seed .. "_self") < 0.01 then
+        if SMODS and SMODS.add_card and G.P_CENTERS and G.P_CENTERS.j_fb_scp_458 then
+            SMODS.add_card({
+                key = "j_fb_scp_458",
+                area = G.jokers
+            })
+            return true
+        end
+    end
+
+    -- Preferred path: your proper Food Joker registry.
+    if FB.create_random_food_joker then
+        return FB.create_random_food_joker(seed .. "_food")
+    end
+
+    -- Fallback path: basic Food Joker.
+    if SMODS and SMODS.add_card and G.P_CENTERS and G.P_CENTERS.j_fb_food then
+        SMODS.add_card({
+            key = "j_fb_food",
+            area = G.jokers
+        })
+        return true
+    end
+
+    return false
+end

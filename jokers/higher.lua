@@ -24,6 +24,138 @@ SMODS.Rarity({
     }
 })
 
+-- Divine secret-unlock helpers. These keep Divine Jokers out of normal pools,
+-- but allow catastrophic transforms to create/unlock them reliably.
+FB.divine_unlock_center = FB.divine_unlock_center or function(key)
+    local clean = FB.clean_joker_key and FB.clean_joker_key(key) or tostring(key or "")
+    local full = clean:find("^j_") and clean or ("j_fb_" .. clean)
+    local center = G and G.P_CENTERS and G.P_CENTERS[full]
+    if center then
+        center.unlocked = true
+        center.discovered = true
+        if unlock_card then
+            pcall(unlock_card, center)
+        end
+    end
+    if G and G.GAME then
+        G.GAME.fb_unlocked_divines = G.GAME.fb_unlocked_divines or {}
+        G.GAME.fb_unlocked_divines[clean:gsub("^j_fb_", "")] = true
+    end
+end
+
+FB.divine_transform_card = FB.divine_transform_card or function(card, target_key, context)
+    if not card then return false end
+    local clean = FB.clean_joker_key and FB.clean_joker_key(target_key) or tostring(target_key or "")
+    local full = clean:find("^j_") and clean or ("j_fb_" .. clean)
+    local center = G and G.P_CENTERS and G.P_CENTERS[full]
+    if not center then return false end
+
+    if card.ability then
+        if card.ability.fb_divine_transforming_to == clean then return true end
+        card.ability.fb_divine_transforming_to = clean
+    end
+
+    FB.divine_unlock_center(clean)
+
+    if G and G.E_MANAGER and Event then
+        G.E_MANAGER:add_event(Event({
+            trigger = 'after',
+            delay = 0.15,
+            func = function()
+                if card and card.set_ability then
+                    card:set_ability(center, nil, true)
+                    card.ability = card.ability or {}
+                    card.ability.eternal = true
+                    card.ability.perishable = false
+                    card.ability.rental = false
+                    card.debuff = false
+                    if card.set_eternal then card:set_eternal(true) end
+                    if card.juice_up then card:juice_up(0.8, 0.8) end
+                end
+                return true
+            end
+        }))
+    else
+        card:set_ability(center, nil, true)
+    end
+
+    return true
+end
+
+FB.divine_count_created = FB.divine_count_created or function(card, counter_key, amount, limit, target_key, context)
+    if not (card and card.ability) then return false end
+    amount = amount or 1
+    limit = limit or 99
+    counter_key = counter_key or "fb_divine_capacity"
+
+    -- A setting_blind cycle is the "single round" window for these creation secrets.
+    if context and context.setting_blind and not card.ability[counter_key .. "_active"] then
+        card.ability[counter_key] = 0
+        card.ability[counter_key .. "_active"] = true
+    end
+
+    card.ability[counter_key] = (card.ability[counter_key] or 0) + amount
+
+    if card.ability[counter_key] >= limit then
+        card.ability[counter_key .. "_active"] = nil
+        return FB.divine_transform_card(card, target_key, context)
+    end
+
+    return false
+end
+
+FB.divine_reset_capacity_counter = FB.divine_reset_capacity_counter or function(card, counter_key)
+    if card and card.ability then
+        counter_key = counter_key or "fb_divine_capacity"
+        card.ability[counter_key] = 0
+        card.ability[counter_key .. "_active"] = nil
+    end
+end
+
+FB.divine_additive_from_return = FB.divine_additive_from_return or function(ret)
+    if type(ret) ~= "table" then return 0 end
+    local total = 0
+    local keys = {"chips", "h_chips", "chip_mod", "mult", "h_mult", "mult_mod"}
+    for _, k in ipairs(keys) do
+        local v = ret[k]
+        if v ~= nil then
+            local n = FB.num and FB.num(v, 0) or tonumber(v) or 0
+            if n > 0 then total = total + n end
+        end
+    end
+    return total
+end
+
+FB.divine_create_food_or_self = FB.divine_create_food_or_self or function(seed, self_odds_num, self_odds_den)
+    self_odds_num = self_odds_num or 1
+    self_odds_den = self_odds_den or 100
+
+    local make_self = false
+    if FB.roll then
+        make_self = FB.roll(seed .. '_scp458_self', self_odds_num, self_odds_den)
+    elseif pseudorandom then
+        make_self = pseudorandom(seed .. '_scp458_self') < (self_odds_num / self_odds_den)
+    end
+
+    if make_self then
+        if FB.create_joker then return FB.create_joker('scp_458') end
+        if SMODS and SMODS.add_card then
+            SMODS.add_card({ key = 'j_fb_scp_458', area = G.jokers })
+            return true
+        end
+    end
+
+    if FB.create_lunchbox_food then return FB.create_lunchbox_food(seed) end
+    if FB.create_random_food_joker then return FB.create_random_food_joker(seed) end
+    if FB.create_joker then return FB.create_joker('food') end
+    if SMODS and SMODS.add_card then
+        SMODS.add_card({ key = 'j_fb_food', area = G.jokers })
+        return true
+    end
+    return false
+end
+
+
 SMODS.Joker({
     key = "bixie_true_form",
     loc_txt = {
@@ -271,11 +403,11 @@ SMODS.Joker({
             "{C:inactive}or negatively affected){}",
             "{C:attention}Retrigger{} all cards and Jokers",
             "Triggered cards and Jokers give:",
-            "{C:chips}+999{} Chips {C:mult}+999{} Mult",
-            "{X:chips,C:white}X999{} Chips {X:mult,C:white}X999{} Mult",
-            "{X:purple,C:white}^999{} Chips {X:consumable,C:white}^999{} Mult",
-            "{X:edition,C:chips}^^999{} Chips {X:dark_edition,C:mult}^^999{} Mult",
-            "{X:edition,C:dark_edition}^^^999{} Chips {X:dark_edition,C:edition}^^^999{} Mult"
+            "{C:chips}+999,999,999{} Chips {C:mult}+999,999,999{} Mult",
+            "{X:chips,C:white}X999,999,999{} Chips {X:mult,C:white}X999,999,999{} Mult",
+            "{X:purple,C:white}^999,999,999{} Chips {X:consumable,C:white}^999,999,999{} Mult",
+            "{X:edition,C:chips}^^999,999,999{} Chips {X:dark_edition,C:mult}^^999,999,999{} Mult",
+            "{X:edition,C:dark_edition}^^^999,999,999{} Chips {X:dark_edition,C:edition}^^^999,999,999{} Mult"
         }
     },
     atlas = "jokers",
@@ -292,16 +424,16 @@ SMODS.Joker({
     unlocked = true,
     config = {
         extra = {
-            chips = 999,
-            mult = 999,
-            x_chips = 999,
-            x_mult = 999,
-            e_chips = 999,
-            e_mult = 999,
-            ee_chips = 999,
-            ee_mult = 999,
-            eee_chips = 999,
-            eee_mult = 999,
+            chips = 999999999,
+            mult = 999999999,
+            x_chips = 999999999,
+            x_mult = 999999999,
+            e_chips = 999999999,
+            e_mult = 999999999,
+            ee_chips = 999999999,
+            ee_mult = 999999999,
+            eee_chips = 999999999,
+            eee_mult = 999999999,
         }
     },
     add_to_deck = function(self, card, from_debuff)
@@ -370,3 +502,180 @@ SMODS.Joker({
         end
     end
 })
+
+SMODS.Joker({
+    key = "scp_458",
+    loc_txt = {
+        name = "SCP-458",
+        text = {
+            "At blind start, create up to",
+            "{C:attention}#1#{} random {C:attention}Food{} Jokers",
+            "{C:attention}+#2#{} Joker slots",
+            "{C:inactive}\"The perfect tool for the perfect party,",
+            "{C:inactive}only if you can eat it all that is...\"{}"
+        }
+    },
+
+    atlas = "jokers",
+    pos = {
+        x = 2,
+        y = 18
+    },
+
+    rarity = "fb_divine",
+    cost = 999,
+    discovered = true,
+    unlocked = true,
+    blueprint_compat = false,
+
+    config = {
+        extra = {
+            foods_per_round = 8,
+            joker_slots = 99
+        }
+    },
+
+    loc_vars = function(self, info_queue, card)
+        return {
+            vars = {
+                card.ability.extra.foods_per_round or 8,
+                card.ability.extra.joker_slots or 99
+            }
+        }
+    end,
+
+    add_to_deck = function(self, card, from_debuff)
+        local slots = card.ability.extra.joker_slots or 99
+
+        if FB.safe_change_joker_slots then
+            FB.safe_change_joker_slots(slots)
+        elseif G and G.jokers and G.jokers.config then
+            G.jokers.config.card_limit = G.jokers.config.card_limit + slots
+        end
+    end,
+
+    remove_from_deck = function(self, card, from_debuff)
+        local slots = card.ability.extra.joker_slots or 99
+
+        if FB.safe_change_joker_slots then
+            FB.safe_change_joker_slots(-slots)
+        elseif G and G.jokers and G.jokers.config then
+            G.jokers.config.card_limit = G.jokers.config.card_limit - slots
+        end
+    end,
+
+    calculate = function(self, card, context)
+        if context.setting_blind
+        and not context.blueprint
+        and not card.ability.fb_scp_458_created_this_blind then
+            card.ability.fb_scp_458_created_this_blind = true
+
+            local made = 0
+            local cap = card.ability.extra.foods_per_round or 8
+
+            for i = 1, cap do
+                if G.jokers
+                and G.jokers.cards
+                and G.jokers.config
+                and #G.jokers.cards >= G.jokers.config.card_limit then
+                    break
+                end
+
+                if FB.create_random_food_joker then
+                    if FB.create_random_food_joker("scp_458_food_" .. tostring(i)) then
+                        made = made + 1
+                    end
+                elseif SMODS and SMODS.add_card and G.P_CENTERS and G.P_CENTERS.j_fb_food then
+                    SMODS.add_card({
+                        key = "j_fb_food",
+                        area = G.jokers
+                    })
+                    made = made + 1
+                end
+            end
+
+            if made > 0 then
+                return {
+                    message = "+" .. tostring(made) .. " Food",
+                    colour = G.C.GREEN,
+                    card = card
+                }
+            end
+
+            return {
+                message = "Empty Box!",
+                colour = G.C.RED,
+                card = card
+            }
+        end
+
+        if context.after and not context.blueprint then
+            card.ability.fb_scp_458_created_this_blind = nil
+        end
+    end
+})
+
+SMODS.Joker({
+    key = "centimoney",
+    loc_txt = {
+        name = "Centimoney",
+        text = {
+            "Whenever any card or Joker triggers,",
+            "multiply your money by {C:money}#1#{}",
+            "{C:inactive}If you have $0, gain $100 instead{}"
+        }
+    },
+    atlas = "jokers",
+    pos = { x = 3, y = 18 },
+    rarity = "fb_divine",
+    cost = 999,
+    blueprint_compat = false,
+    eternal_compat = true,
+    perishable_compat = false,
+    discovered = true,
+    unlocked = true,
+    config = {
+        extra = {
+            money_mult = 100
+        }
+    },
+    loc_vars = function(self, info_queue, card)
+        return { vars = { card.ability.extra.money_mult or 100 } }
+    end,
+    add_to_deck = function(self, card, from_debuff)
+        card.ability.eternal = true
+        card.ability.perishable = false
+        card.ability.rental = false
+        card.debuff = false
+        if card.set_eternal then card:set_eternal(true) end
+    end,
+    calculate = function(self, card, context)
+        if not context.blueprint and card.debuff then
+            card.debuff = false
+        end
+        local triggered = context
+            and not context.blueprint
+            and not context.end_of_round
+            and not context.setting_blind
+            and not context.before
+            and not context.after
+            and not context.selling_card
+            and not context.selling_self
+            and not context.destroy_card
+            and not context.remove_playing_cards
+            and (
+                (FB.is_scoring_individual and FB.is_scoring_individual(context) and context.other_card)
+                or (context.post_trigger and context.other_card)
+                or (FB.is_scoring_joker_main and FB.is_scoring_joker_main(context))
+            )
+
+        if triggered then
+            local factor = card.ability.extra.money_mult or 100
+            local dollars = math.max(0, FB.num(G.GAME and G.GAME.dollars, 0))
+            local gain = dollars > 0 and (dollars * (factor - 1)) or factor
+            FB.try_add_dollars(gain)
+            return { message = "$X" .. factor, colour = G.C.MONEY, card = card }
+        end
+    end
+})
+

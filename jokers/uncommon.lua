@@ -679,9 +679,19 @@ SMODS.Joker({
     unlocked = true,
     blueprint_compat = false,
     calculate = function(self, card, context)
+        if context.end_of_round and not context.blueprint then
+            FB.divine_reset_capacity_counter(card, 'fb_lunchbox_capacity')
+        end
         if context.setting_blind and not context.blueprint and FB.available_joker_slots() > 0 then
             local created = FB.create_lunchbox_food('lunchbox_medkit')
             if created then
+                if FB.divine_count_created(card, 'fb_lunchbox_capacity', 1, 99, 'scp_458', context) then
+                    return {
+                        message = "BOOM!",
+                        colour = G.C.EDITION,
+                        card = card
+                    }
+                end
                 return {
                     message = "Lunch!",
                     colour = G.C.GREEN,
@@ -691,7 +701,6 @@ SMODS.Joker({
         end
     end
 })
-
 SMODS.Joker({
     key = "mapo_tofu",
     loc_txt = {

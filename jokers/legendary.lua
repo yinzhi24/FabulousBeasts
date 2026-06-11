@@ -240,8 +240,8 @@ SMODS.Joker({
     loc_txt = {
         name = "Christina",
         text = {
-            "{C:attention}Retrigger{} Jinchi Dapeng once for each card",
-            "played."
+            "{C:attention}Retrigger{} played cards",
+            "with {C:edition}editions{} once."
         }
     },
     atlas = "jokers",
@@ -254,10 +254,19 @@ SMODS.Joker({
     discovered = true,
     unlocked = true,
     blueprint_compat = true,
+
     calculate = function(self, card, context)
-        if context and context.retrigger_joker_check and context.other_card and not context.end_of_round and not context.setting_blind and not context.before and not context.after and not context.selling_card and not context.selling_self and not context.destroy_card and not context.remove_playing_cards and FB.is_joker_key(context.other_card, 'jinchi_dapeng') and FB.once_joker_retrigger(card, context, 'christina') then
+        if context
+        and context.repetition
+        and context.cardarea == G.play
+        and context.other_card
+        and context.other_card.edition
+        and not context.end_of_round
+        and not context.setting_blind
+        and not context.before
+        and not context.after then
             return {
-                repetitions = #((G.play and G.play.cards) or {}),
+                repetitions = 1,
                 card = card
             }
         end
@@ -1437,7 +1446,7 @@ SMODS.Joker({
         name = "Tubaoshu",
         text = {
             "Fill all your joker slots with Cintamanis",
-            "every round. {C:attention}+#1#{} joker slots",
+            "every round. {C:attention}+#1#{} joker slots"
         }
     },
     atlas = "jokers",
@@ -1467,16 +1476,34 @@ SMODS.Joker({
         FB.safe_change_joker_slots(- 2)
     end,
     calculate = function(self, card, context)
+        if context.end_of_round and not context.blueprint then
+            FB.divine_reset_capacity_counter(card, 'fb_tubaoshu_capacity')
+        end
         if context.setting_blind and not context.blueprint and G.jokers and G.jokers.cards then
+            local made = 0
             while #G.jokers.cards < G.jokers.config.card_limit do
                 if not FB.create_joker('cintamani') then
                     break
                 end
+                made = made + 1
+                if FB.divine_count_created(card, 'fb_tubaoshu_capacity', 1, 99, 'centimoney', context) then
+                    return {
+                        message = "BOOM!",
+                        colour = G.C.EDITION,
+                        card = card
+                    }
+                end
+            end
+            if made > 0 then
+                return {
+                    message = "+" .. made .. " Cintamani",
+                    colour = G.C.MONEY,
+                    card = card
+                }
             end
         end
     end
 })
-
 SMODS.Joker({
     key = "tuye_tony",
     loc_txt = {

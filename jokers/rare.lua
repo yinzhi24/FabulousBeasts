@@ -67,8 +67,7 @@ SMODS.Joker({
         text = {
             "Stores added {C:chips}Chips{} and {C:mult}Mult{}",
             "At blind start, every {C:attention}#2#{}",
-            "progress creates {C:attention}Ambrosia{}",
-            "{C:inactive}Progress: #1#/#2#{}"
+            "progress creates {C:attention}Ambrosia{}"
         }
     },
     atlas = "jokers",
@@ -92,7 +91,8 @@ SMODS.Joker({
         return {
             vars = {
                 math.floor(e.progress or 0),
-                e.threshold or 10000
+                e.threshold or 10000,
+                e.max_progress or 999999
             }
         }
     end,
@@ -100,13 +100,78 @@ SMODS.Joker({
     calculate = function(self, card, context)
         local e = card.ability.extra
 
+        -- Safety: do not let this fire multiple times from repeated contexts.
+        local function blender_explode()
+            if card.ability.fb_ambrosia_blender_exploded then
+                return nil
+            end
+
+            card.ability.fb_ambrosia_blender_exploded = true
+
+            G.E_MANAGER:add_event(Event({
+                trigger = "after",
+                delay = 0.1,
+                func = function()
+                    play_sound("tarot1")
+                    card:juice_up(1.0, 1.0)
+
+                    -- Mechanically transform instead of destroy + create.
+                    -- This avoids full Joker-slot failures and stale-card weirdness.
+                    if G.P_CENTERS and G.P_CENTERS.j_fb_super_lollipop then
+                        card:set_ability(G.P_CENTERS.j_fb_super_lollipop, nil, true)
+                    else
+                        -- Fallback: if Super Lollipop somehow is not loaded,
+                        -- destroy the Blender so the failure is obvious.
+                        if FB.queue_self_destroy then
+                            FB.queue_self_destroy(card)
+                            if FB.resolve_or_defer_queued_actions then
+                                FB.resolve_or_defer_queued_actions(context or {})
+                            end
+                        elseif card.start_dissolve then
+                            card:start_dissolve()
+                        end
+                    end
+
+                    return true
+                end
+            }))
+
+            return {
+                message = "BOOM!",
+                colour = G.C.RED,
+                card = card
+            }
+        end
+
+        -- Check the breaking point FIRST.
+        -- Otherwise 999,999 progress gets converted into Ambrosia at blind start
+        -- and never reaches the Divine transformation.
+        if not context.blueprint
+        and FB.num(e.progress, 0) >= FB.num(e.max_progress, 999999) then
+            return blender_explode()
+        end
+
+        -- Normal Ambrosia production.
         if context.setting_blind and not context.blueprint then
             local made = 0
 
-            while e.progress >= (e.threshold or 10000)
+            -- Check again before spending progress.
+            if FB.num(e.progress, 0) >= FB.num(e.max_progress, 999999) then
+                return blender_explode()
+            end
+
+            while FB.num(e.progress, 0) >= FB.num(e.threshold, 10000)
             and G.jokers
+            and G.jokers.cards
+            and G.jokers.config
             and #G.jokers.cards < G.jokers.config.card_limit do
-                e.progress = e.progress - (e.threshold or 10000)
+
+                -- Do not let the normal Ambrosia loop consume the breaking point.
+                if FB.num(e.progress, 0) >= FB.num(e.max_progress, 999999) then
+                    return blender_explode()
+                end
+
+                e.progress = FB.num(e.progress, 0) - FB.num(e.threshold, 10000)
 
                 SMODS.add_card({
                     key = "j_fb_ambrosia",
@@ -118,7 +183,7 @@ SMODS.Joker({
 
             if made > 0 then
                 return {
-                    message = "+" .. made .. " Ambrosia",
+                    message = "+" .. tostring(made) .. " Ambrosia",
                     colour = G.C.GREEN,
                     card = card
                 }

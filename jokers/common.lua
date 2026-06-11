@@ -835,6 +835,7 @@ SMODS.Joker({
         if context.setting_blind and not context.blueprint then
             local slots = FB.available_joker_slots()
             local made = 0
+            local exploded = false
             for _,
             j in ipairs(FB.joker_cards()) do
                 if FB.is_joker_key(j, 'lunchbox_medkit') then
@@ -842,10 +843,21 @@ SMODS.Joker({
                     slots do
                         if FB.create_lunchbox_food('health_insurance_'..i) then
                             made = made + 1
+                            if FB.divine_count_created and FB.divine_count_created(j, 'fb_lunchbox_capacity', 1, 99, 'scp_458', context) then
+                                exploded = true
+                                break
+                            end
                         end
                     end
                     break
                 end
+            end
+            if exploded then
+                return {
+                    message = "BOOM!",
+                    colour = G.C.EDITION,
+                    card = card
+                }
             end
             if made > 0 then
                 return {

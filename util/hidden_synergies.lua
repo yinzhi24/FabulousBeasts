@@ -117,8 +117,8 @@ FB.hidden_synergy.data = {
             "Gain {C:attention}+1{} joker slot"
         },
         lord_phoenix = {
-            "Jokers without {C:attention}enhancements{}/{C:edition}editions{}",
-            "are retriggered"
+            "Scored cards without {C:attention}enhancements{}",
+            "give {X:mult,C:white}2X{} mult"
         }
     },
 
@@ -284,6 +284,25 @@ function FB.has_joker_key(key)
     return FB.find_joker(key) ~= nil
 end
 
+function FB.center_key_for_joker(key)
+    local clean = FB.clean_joker_key(key)
+    if not clean then return nil end
+
+    local candidates = {
+        "j_fb_" .. clean,
+        "j_" .. clean,
+        clean
+    }
+
+    for _, candidate in ipairs(candidates) do
+        if G and G.P_CENTERS and G.P_CENTERS[candidate] then
+            return candidate
+        end
+    end
+
+    return nil
+end
+
 function FB.hidden_has_vision()
     return G and G.STATE ~= G.STATES.COLLECTION
         and G.GAME and G.GAME.used_vouchers
@@ -316,8 +335,14 @@ end
 
 function FB.sold_card_from_context(context)
     if not context then return nil end
-    if type(context.card) == "table" then return context.card end
+
+    -- Only report a sold card in actual selling contexts.
+    -- The old version returned context.card in every context, which can
+    -- accidentally make unrelated scoring/retrigger contexts look like sales.
+    if not (context.selling_card or context.selling_self) then return nil end
+
     if type(context.selling_card) == "table" then return context.selling_card end
+    if type(context.card) == "table" then return context.card end
     if type(context.selling_self) == "table" then return context.selling_self end
     return nil
 end
@@ -558,6 +583,131 @@ function FB.secret_has_any_seal(card)
     return card and card.seal ~= nil
 end
 
+function FB.secret_card_has_enhancement(card)
+    if not (card and card.config and card.config.center) then return false end
+    return G and G.P_CENTERS and card.config.center ~= G.P_CENTERS.c_base
+end
+
+function FB.secret_card_has_edition(card)
+    return card and card.edition ~= nil
+end
+
+function FB.secret_card_is_suit(card, suit)
+    if not card then return false end
+
+    if card.is_suit then
+        local ok, result = pcall(function()
+            return card:is_suit(suit, nil, true)
+        end)
+        if ok then return result == true end
+    end
+
+    return card.base and card.base.suit == suit
+end
+
+function FB.secret_deck_has_suit(suit)
+    local seen = {}
+    local zones = {
+        G and G.playing_cards,
+        G and G.deck and G.deck.cards,
+        G and G.hand and G.hand.cards,
+        G and G.discard and G.discard.cards,
+        G and G.play and G.play.cards
+    }
+
+    for _, cards in ipairs(zones) do
+        if type(cards) == "table" then
+            for _, c in ipairs(cards) do
+                if c and not seen[c] then
+                    seen[c] = true
+                    if FB.secret_card_is_suit(c, suit) then
+                        return true
+                    end
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+function FB.secret_deck_has_hearts()
+    return FB.secret_deck_has_suit("Hearts")
+end
+
+function FB.secret_try_evolve_card_once(card, target_key, flag)
+    if not (card and card.ability) then return false end
+    target_key = FB.clean_joker_key(target_key)
+    flag = flag or ("fb_evolving_to_" .. tostring(target_key))
+
+    if card.ability[flag] or FB.is_joker_key(card, target_key) then
+        return false
+    end
+
+    card.ability[flag] = true
+    return FB.secret_evolve_card(card, target_key)
+end
+
+FB.food_joker_registry = FB.food_joker_registry or {
+    -- Vanilla food jokers
+    "gros_michel", "cavendish", "ice_cream", "popcorn", "ramen", "seltzer", "egg", "turtle_bean",
+
+    -- Fabulous Beasts food jokers
+    "ambrosia", "ambrosia_blender", "divine_herb", "dog_food", "emergency_rations",
+    "food", "food_reserve", "foraged_mushrooms", "heavenly_cumin", "hellspice_hotpot",
+    "mooncake", "skewered_kebab", "teacup", "chicken_mushroom_stew", "heavenly_elixirs",
+    "hellish_delicacies", "lunchbox_medkit", "mapo_tofu", "moon_palace", "mooncake_cannon"
+}
+
+function FB.food_joker_registry_lookup()
+    if FB._food_joker_registry_lookup then return FB._food_joker_registry_lookup end
+
+    local lookup = {}
+    for _, key in ipairs(FB.food_joker_registry or {}) do
+        lookup[FB.clean_joker_key(key)] = true
+    end
+
+    FB._food_joker_registry_lookup = lookup
+    return lookup
+end
+
+function FB.is_food_joker(card_or_key)
+    local key = FB.raw_key(card_or_key)
+    if not key then return false end
+    return FB.food_joker_registry_lookup()[key] == true
+end
+
+function FB.random_food_joker_center_key(seed)
+    local pool = {}
+
+    for _, key in ipairs(FB.food_joker_registry or {}) do
+        local center_key = FB.center_key_for_joker(key)
+        if center_key then
+            pool[#pool + 1] = center_key
+        end
+    end
+
+    if #pool <= 0 then return nil end
+
+    if pseudorandom_element and pseudoseed then
+        return pseudorandom_element(pool, pseudoseed(seed or "fb_food_joker"))
+    end
+
+    return pool[math.random(#pool)]
+end
+
+function FB.create_random_food_joker(seed)
+    local center_key = FB.random_food_joker_center_key(seed)
+    if not center_key then return false end
+
+    if SMODS and SMODS.add_card then
+        SMODS.add_card({ key = center_key, area = G and G.jokers })
+        return true
+    end
+
+    return false
+end
+
 function FB.secret_evolve_card(card, target_key)
     local full = FB.full_joker_key(target_key)
     if not (card and G and G.P_CENTERS and G.P_CENTERS[full]) then return false end
@@ -572,10 +722,44 @@ function FB.secret_evolve_card(card, target_key)
 end
 
 function FB.secret_create_joker(key)
-    if FB.create_joker then return FB.create_joker(key) end
-    local full = FB.full_joker_key(key)
-    if not (G and G.P_CENTERS and G.P_CENTERS[full] and SMODS and SMODS.add_card) then return false end
-    SMODS.add_card({ key = full })
+    local center_key = FB.center_key_for_joker(key)
+    if not center_key then return false end
+
+    if SMODS and SMODS.add_card then
+        SMODS.add_card({ key = center_key, area = G and G.jokers })
+        return true
+    end
+
+    if FB.create_joker then
+        return FB.create_joker(FB.clean_joker_key(center_key))
+    end
+
+    return false
+end
+
+function FB.secret_force_create_joker(key)
+    local center_key = FB.center_key_for_joker(key)
+    if not center_key or not (G and G.jokers and G.jokers.config and SMODS and SMODS.add_card) then
+        return FB.secret_create_joker(key)
+    end
+
+    local old_limit = G.jokers.config.card_limit or 0
+    local current_count = #(G.jokers.cards or {})
+    local bumped = false
+
+    if current_count >= old_limit then
+        G.jokers.config.card_limit = current_count + 1
+        bumped = true
+    end
+
+    SMODS.add_card({ key = center_key, area = G.jokers })
+
+    -- Restore the real capacity after the card is created. The Joker remains,
+    -- but the player is now over capacity until they free slots normally.
+    if bumped then
+        G.jokers.config.card_limit = old_limit
+    end
+
     return true
 end
 
@@ -663,7 +847,7 @@ function FB.secret_handle_dijiang_destroy(dijiang, context)
         end
     end
 
-    FB.secret_create_joker("rainbow_mountain_range")
+    FB.secret_force_create_joker("rainbow_mountain_range")
 
     if FB.resolve_or_defer_queued_actions then
         FB.resolve_or_defer_queued_actions(context or {})
@@ -744,10 +928,6 @@ end
 function FB.secret_sanitize_effect_return(ret, context)
     if type(ret) ~= "table" then return ret end
 
-    -- Steamodded/Balatro treats retrigger callback returns specially.
-    -- If a return table has `repetitions`, it must not also carry scoring
-    -- keys like x_mult/x_chips/chips/mult, or the engine can try to apply
-    -- those values while global score variables are unavailable.
     local is_retrigger_return = ret.repetitions ~= nil
         or (context and context.retrigger_joker_check)
 
@@ -776,9 +956,10 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
 
     -- Tianlu + Bixie: Tianlu stops eating money at blind start; Cintamani sales may evolve Tianlu.
     if key == "tianlu" and FB.secret_synergy_active(card, "bixie") then
+        card.ability.extra = card.ability.extra or {}
+
         if context.setting_blind and not context.blueprint then
             local d = FB.secret_nonnegative_number(G.GAME and G.GAME.dollars, 0)
-
             card.ability.extra.xchips = (card.ability.extra.xchips or 1) + d * 0.1
 
             return {
@@ -788,21 +969,12 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
             }
         end
 
-        local sold_card = nil
-
-        if context.selling_card then
-            if type(context.card) == "table" then
-                sold_card = context.card
-            elseif type(context.selling_card) == "table" then
-                sold_card = context.selling_card
-            end
-        end
-
+        local sold_card = FB.sold_card_from_context(context)
         if sold_card
         and FB.is_joker_key(sold_card, "cintamani")
         and not context.blueprint then
             if pseudorandom("fb_tianlu_cintamani_true_form") < 0.01 then
-                FB.secret_evolve_card(card, "tianlu_true_form")
+                FB.secret_try_evolve_card_once(card, "tianlu_true_form", "fb_tianlu_true_form_from_cintamani")
 
                 return {
                     message = "True Form!",
@@ -814,22 +986,24 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
     end
 
     -- Bixie + Tianlu / Sibuxiang.
-    if key == "bixie" then
-        if FB.secret_synergy_active(card, "tianlu") then
-            if context.discard and not context.blueprint then
-                card.ability.extra.xmult = (card.ability.extra.xmult or 1) + 1
-                return { message = "X" .. tostring(card.ability.extra.xmult), colour = G.C.MULT, card = card }
+    if key == "bixie" and FB.can_use_secret_synergies() then
+        card.ability.extra = card.ability.extra or {}
+
+        if FB.has_joker_key("tianlu") and context.discard and not context.blueprint then
+            card.ability.extra.xmult = (card.ability.extra.xmult or 1) + 1
+            return { message = "X" .. tostring(card.ability.extra.xmult), colour = G.C.MULT, card = card }
+        end
+
+        local sold_card = FB.sold_card_from_context(context)
+        if sold_card and FB.is_joker_key(sold_card, "tianlu") and not context.blueprint then
+            FB.secret_try_evolve_card_once(card, "bixie_true_form", "fb_bixie_true_form_from_tianlu")
+
+            if FB.secret_synergy_active(card, "sibuxiang") then
+                local sibuxiang = FB.find_joker("sibuxiang")
+                FB.secret_destroy_card(sibuxiang, context)
             end
-            local sold_card = FB.sold_card_from_context(context)
-            if sold_card and FB.is_joker_key(sold_card, "tianlu") and not context.blueprint then
-                FB.secret_evolve_card(card, "bixie_true_form")
-                if FB.secret_pair_active("bixie", "sibuxiang") then
-                    local sibuxiang = FB.find_joker("sibuxiang")
-                    FB.secret_destroy_card(sibuxiang, context)
-                    G.GAME.fb_make_qilin_sibuxiang_after_ante = true
-                end
-                return { message = "True Form!", colour = G.C.PURPLE, card = card }
-            end
+
+            return { message = "True Form!", colour = G.C.PURPLE, card = card }
         end
     end
 
@@ -868,6 +1042,17 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
         end
     end
 
+    -- Dijiang self-destructs when there are no Hearts left anywhere in the deck.
+    -- If Hundun is paired with it, the destroy hook below handles Hundun and Rainbow Mountain Range.
+    if key == "dijiang" and not context.blueprint then
+        card.ability = card.ability or {}
+        if not card.ability.fb_dijiang_self_destructing and not FB.secret_deck_has_hearts() then
+            card.ability.fb_dijiang_self_destructing = true
+            FB.secret_destroy_card(card, context)
+            return { message = "No Hearts!", colour = G.C.RED, card = card }
+        end
+    end
+
     -- Hundun + Dijiang.
     if key == "hundun" and FB.secret_synergy_active(card, "dijiang") then
         local dijiang = FB.find_joker("dijiang")
@@ -887,25 +1072,6 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
             end
         end
 
-        local dijiang_self_destructing =
-            dijiang
-            and not context.blueprint
-            and (
-                context.destroy_card == dijiang
-                or context.removing_card == dijiang
-                or context.card == dijiang
-                or context.other_card == dijiang
-                or dijiang.removed
-                or dijiang.getting_sliced
-                or dijiang.shattered
-                or dijiang.destroyed
-            )
-
-        if dijiang_self_destructing and not card.ability.fb_hundun_dijiang_destroyed then
-            card.ability.fb_hundun_dijiang_destroyed = true
-            FB.secret_handle_dijiang_destroy(dijiang, context)
-            return { message = "What a beaut!", colour = G.C.PURPLE, card = card }
-        end
     end
 
     if key == "dijiang" and FB.secret_synergy_active(card, "hundun") then
@@ -1006,9 +1172,24 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
     end
 
     -- Bibi / Christina / Lord Phoenix / Jinchi Dapeng cluster.
+    if key == "christina" then
+        if FB.is_card_repetition
+        and FB.is_card_repetition(context)
+        and context.cardarea == G.play
+        and context.other_card
+        and FB.secret_card_has_edition(context.other_card) then
+            local ret = normal_return or {}
+            ret.repetitions = (ret.repetitions or 0) + 1
+            ret.card = ret.card or card
+            return ret
+        end
+    end
+
     if key == "bibi" and FB.secret_synergy_active(card, "lord_phoenix") then
-        if context and context.retrigger_joker_check and context.other_card and context.other_card ~= card and FB.secret_card_has_no_modifier(context.other_card) and FB.once_joker_retrigger(card, context, "bibi_lord_phoenix") then
-            return { repetitions = 1, card = card }
+        if FB.is_scoring_individual(context)
+        and context.other_card
+        and not FB.secret_card_has_enhancement(context.other_card) then
+            return { x_mult = 2, card = card }
         end
     end
     if key == "christina" and FB.secret_synergy_active(card, "jinchi_dapeng") then
@@ -1032,14 +1213,9 @@ function FB.run_hidden_secret_effects(key, self, card, context, normal_return)
         end
     end
     if key == "erliang" and FB.secret_synergy_active(card, "bajin") and context.setting_blind and not context.blueprint then
-        if FB.create_random_food_joker then
-            FB.create_random_food_joker("erliang_bajin_secret")
-        elseif FB.create_random_joker then
-            FB.create_random_joker("erliang_bajin_secret")
-        else
-            FB.secret_create_joker("food")
+        if FB.create_random_food_joker("erliang_bajin_secret") then
+            return { message = "Food!", colour = G.C.GREEN, card = card }
         end
-        return { message = "Food!", colour = G.C.GREEN, card = card }
     end
 
     -- Qiongqi protection / eternal pair.
@@ -1104,9 +1280,6 @@ function FB.install_hidden_synergy_joker_wrapper()
             def.calculate = function(self, card, context)
                 local normal_return
 
-                -- Tianlu + Bixie replaces Tianlu's blind-start money drain.
-                -- Run the hidden synergy first and skip Tianlu's original calculate
-                -- so the original effect cannot consume money before the secret effect.
                 if joker_key == "tianlu"
                 and context
                 and context.setting_blind

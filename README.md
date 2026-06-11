@@ -2,17 +2,16 @@
 A Chinese mythology inspired content expansion mod for Balatro. Based on [Fabulous Beasts](https://www.youtube.com/watch?v=GY3jg2heY30) (the manga and anime)
 
 ## Current Version
-Current version: `0.3.0-alpha`
+Current version: `0.3.1-alpha`
 This is an alpha release.
 This version added:
-* More challenges
-* A new decks and sleeve!
-* New hands!
-* More jokers!
-* The usual bug fixes, reworks, and balance changes
+* Secret interaction bug fixes and balances
+* Reworked some secret interactions
+* Made Divine rarity jokers obtainable
+* Added 2 more Divine rarity jokers
 
 ## Next Planned Update
-`0.3.0-beta` will be the next update if no additional patches are required. This update will add consolidate the mod and focus specifically on bug fixes and playability. More content will be added
+`0.3.1-beta` will be the next update if no additional patches are required. This update will add consolidate the mod and focus specifically on bug fixes and playability. More content will be added
 
 ## Features
 * 100+ custom Jokers
