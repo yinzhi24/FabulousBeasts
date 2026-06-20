@@ -65,9 +65,10 @@ SMODS.Joker({
     loc_txt = {
         name = "Ambrosia Blender",
         text = {
-            "Stores added {C:chips}Chips{} and {C:mult}Mult{}",
-            "At blind start, every {C:attention}#2#{}",
-            "progress creates {C:attention}Ambrosia{}"
+            "Stores gained {C:chips}Chips{} and {C:mult}Mult{}",
+            "At Blind start, create",
+            "{C:attention}Ambrosia{} for every {C:attention}#2#{} Progress",
+            "{C:inactive}Current Progress: #1#{}"
         }
     },
     atlas = "jokers",

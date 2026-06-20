@@ -44,6 +44,8 @@ assert(SMODS.load_file("blinds/blinds.lua"))()
 assert(SMODS.load_file("vouchers/vouchers.lua"))()
 assert(SMODS.load_file("boosters/boosters.lua"))()
 
+assert(SMODS.load_file("consumables/spectral.lua"))()
+
 assert(SMODS.load_file("challenges/unlucky.lua"))()
 assert(SMODS.load_file("challenges/growing_up_together.lua"))()
 assert(SMODS.load_file("challenges/eidolon.lua"))()
@@ -61,6 +63,11 @@ assert(SMODS.load_file("challenges/little_three.lua"))()
 assert(SMODS.load_file("challenges/out_of_the_spotlight.lua"))()
 assert(SMODS.load_file("challenges/ascension_to_heaven.lua"))()
 
+assert(SMODS.load_file("talismans/talismans.lua"))()
+assert(SMODS.load_file("talismans/talisman_enhancements.lua"))()
+assert(SMODS.load_file("talismans/talisman_spectrals.lua"))()
+assert(SMODS.load_file("talismans/talisman_hooks.lua"))()
 
-
--- dev username for dev mode: Zinaidev0.2.0-alpha-06BCF5-FF6565-1B
+FB.register_talismans()
+FB.register_talisman_enhancements()
+FB.register_talisman_spectrals()

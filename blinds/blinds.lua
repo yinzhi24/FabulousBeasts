@@ -135,7 +135,11 @@ local function create_blind(args)
         mult = args.mult or 2,
         boss = args.boss or {min = 1},
         boss_colour = args.boss_colour or FB_BLIND_COLOURS[args.key] or HEX("8f6f4e"),
+        discovered = args.discovered,
+        no_collection = args.no_collection,
+        ignore_showdown_check = args.ignore_showdown_check,
         in_pool = args.in_pool,
+        
 
         set_blind = function(self, reset, silent)
             reset_fb_blind_state()
@@ -1371,6 +1375,176 @@ create_blind({
     end,
     modify_hand = function(self, cards, poker_hands, text, mult, hand_chips)
         return mult * 2, hand_chips * 2, true
+    end
+})
+
+
+-- =========================
+-- Secret Blinds
+-- =========================
+
+local function fb_current_round_number()
+    if not G or not G.GAME then return 0 end
+    return tonumber(G.GAME.round)
+        or tonumber(G.GAME.round_count)
+        or tonumber(G.GAME.round_number)
+        or tonumber(G.GAME.round_resets and G.GAME.round_resets.round)
+        or tonumber(G.GAME.current_round and G.GAME.current_round.round_number)
+        or 0
+end
+
+local function fb_hard_to_destroy_unlocked()
+    if not (G and G.GAME) then return false end
+    if G.GAME.fb_hard_to_destroy_found then return true end
+
+    -- playtest value
+    return fb_current_round_number() >= 682
+
+    -- real value later:
+    -- return fb_current_round_number() >= 682
+end
+
+local function fb_hard_state()
+    G.GAME.fb_hard_to_destroy_state = G.GAME.fb_hard_to_destroy_state or {
+        ranks = {},
+        suits = {},
+        enhancements = {},
+        seals = {},
+        editions = {},
+        jokers = {},
+        pending_jokers = {},
+    }
+    return G.GAME.fb_hard_to_destroy_state
+end
+
+local function fb_card_edition_key(card)
+    if not card or not card.edition then return nil end
+    if card.edition.foil then return "foil" end
+    if card.edition.holo then return "holo" end
+    if card.edition.polychrome then return "polychrome" end
+    if card.edition.negative then return "negative" end
+    return nil
+end
+
+local function fb_reveal_hard_to_destroy_blind()
+    if not (G and G.GAME) then return end
+    G.GAME.fb_hard_to_destroy_found = true
+
+    local center = G.P_BLINDS and (
+        G.P_BLINDS.bl_fb_hard_to_destroy
+        or G.P_BLINDS.fb_hard_to_destroy
+        or G.P_BLINDS.hard_to_destroy
+    )
+
+    if center then
+        center.discovered = true
+        center.no_collection = false
+    end
+end
+
+local function fb_square_current_blind_score()
+    if not (G and G.GAME and G.GAME.blind and G.GAME.blind.chips) then return end
+
+    local base = G.GAME.blind.chips
+    local squared = base * base
+
+    G.GAME.blind.chips = squared
+    G.GAME.blind.chip_text = number_format(squared)
+end
+
+create_blind({
+    key = "hard_to_destroy",
+    pos = {x = 0, y = 25},
+    dollars = 6,
+    discovered = false,
+    no_collection = true,
+    boss_colour = HEX("4795A6"),
+    loc_txt = {
+        name = "Hard to Destroy Blind",
+        text = {
+            "How the hell am I",
+            "supposed to kill this thing?"
+        }
+    },
+
+    in_pool = function(self)
+        local unlocked = fb_hard_to_destroy_unlocked()
+        if unlocked then fb_reveal_hard_to_destroy_blind() end
+        return unlocked
+    end,
+
+    set_blind = function()
+        fb_reveal_hard_to_destroy_blind()
+        G.GAME.fb_hard_to_destroy_state = nil
+        fb_hard_state()
+        fb_square_current_blind_score()
+    end,
+
+    debuff_card = function(self, card, from_blind)
+        local state = fb_hard_state()
+
+        if is_playing_card(card) then
+            local rank = card.base and card.base.id
+            local suit = card.base and card.base.suit
+            local enh = card.config and card.config.center and card.config.center.key
+            local seal = card.seal
+            local edition = fb_card_edition_key(card)
+
+            return (rank and state.ranks[rank])
+                or (suit and state.suits[suit])
+                or (enh and enh ~= "c_base" and state.enhancements[enh])
+                or (seal and state.seals[seal])
+                or (edition and state.editions[edition])
+        end
+
+        local key = card and card.config and card.config.center and card.config.center.key
+        return key and state.jokers[key]
+    end,
+
+    calculate = function(self, blind, context)
+        local state = fb_hard_state()
+
+        -- Learn played-card traits during scoring, but debuffs matter after.
+        if context.individual and context.cardarea == G.play and context.other_card then
+            local c = context.other_card
+
+            if c.base and c.base.id then state.ranks[c.base.id] = true end
+            if c.base and c.base.suit then state.suits[c.base.suit] = true end
+
+            local enh = c.config and c.config.center and c.config.center.key
+            if enh and enh ~= "c_base" then state.enhancements[enh] = true end
+
+            if c.seal then state.seals[c.seal] = true end
+
+            local ed = fb_card_edition_key(c)
+            if ed then state.editions[ed] = true end
+        end
+
+        -- Mark Jokers that triggered this hand.
+        if context.joker_main and context.card then
+            local key = context.card.config and context.card.config.center and context.card.config.center.key
+            if key then state.pending_jokers[key] = true end
+        end
+
+        -- After scoring, commit Joker adaptations and refresh debuffs.
+        if context.after then
+            for key, _ in pairs(state.pending_jokers or {}) do
+                state.jokers[key] = true
+            end
+            state.pending_jokers = {}
+
+            if G.hand and G.hand.cards then
+                for _, c in ipairs(G.hand.cards) do
+                    if c.set_debuff then c:set_debuff(false) end
+                end
+            end
+
+            if G.jokers and G.jokers.cards then
+                for _, j in ipairs(G.jokers.cards) do
+                    if j.set_debuff then j:set_debuff(false) end
+                end
+            end
+        end
     end
 })
 

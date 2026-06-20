@@ -2,19 +2,27 @@
 A Chinese mythology inspired content expansion mod for Balatro. Based on [Fabulous Beasts](https://www.youtube.com/watch?v=GY3jg2heY30) (the manga and anime)
 
 ## Current Version
-Current version: `0.3.1-beta`
-This is an alpha release.
-This version added:
-* Secret interaction bug fixes and balances
-* Reworked some secret interactions
-* Made Divine rarity jokers obtainable
-* Added 2 more Divine rarity jokers
+Current version: `0.4.0-beta`
+This is a beta release.
+
+This update added:
+* Talismans! They occupy the Seal slot and act as a second Enhancement on playing cards. Some combinations also unlock powerful stacked effects!
+* New Spectral cards with unique mechanics and interactions
+* A new Edition: Refined! Balances score if the card or joker it's on is triggered
+* Numerous bug fixes and improved crash handling
+* Maybe some secrets. Who knows? :)
 
 ## Next Planned Update
-`0.4.0-beta` will be the next update if no additional patches are required. This update will add consolidate the mod and focus specifically on bug fixes and playability. Sprites will be added soon
+`0.5.0-beta` will be the next update unless additional hotfixes are required
+This update will focus primarily on consolidating the mod, improving stability, fixing bugs, and enhancing overall playability. Additional content may also be added
+
+## Stability
+This version has undergone extensive gameplay testing and interaction testing
+However, due to the complexity of Balatro mod interactions, bugs may still exist
+Please report any issues you encounter
 
 ## Features
-* 100+ custom Jokers
+* 120+ custom Jokers
 * Custom Boss Blinds
 * Custom Booster Packs
 * Custom Vouchers
@@ -55,6 +63,9 @@ Includes:
 * Divine Prosperity
 * Vision
 * True Sight
+
+## Talismans
+Acts as a second enhancement on cards, including stacked effects! Takes up the Seal slot
 
 ## Screenshots
 
@@ -134,10 +145,10 @@ If you would like to help with localization, feel free to DM me on Discord
 Keep reading. It's somewhere in here :)
 
 ### Why are some sprites placeholders?
-The mod is currently in alpha and many assets are temporary
+The mod is currently in beta and many assets are temporary
 
 ### Why did my game crash?
-This is an alpha build. Expect bugs and crashes, and please report them if you encounter any
+This is a beta build. Expect bugs and crashes, and please report them if you encounter any
 
 ### How do I unlock Exotic and Divine Jokers?
 Most Exotic and Divine Jokers cannot naturally appear and are obtained through secret unlocks and hidden interactions
@@ -198,8 +209,8 @@ Yes. The mod currently uses placeholder assets for many Jokers
 ### Can I help with mod development?
 Absolutely! Any help is welcome! Just send me a DM on Discord or a pull request!
 
-### When will the mod be out of alpha?
-Once most of the art is complete and the mod is free of major bugs, glitches, and unexpected crashes
+### When will the mod be out of beta?
+Once all of the art is complete and the mod is free of known major bugs, glitches, and unexpected crashes
 
 ### I want to support you!
 You are completely welcome to support me on my [Ko-fi](https://ko-fi.com/zinaida7224), and even without any monetary support I will still update this mod until the manga and animated series come to a halt (which won't be happening anytime soon), I made this Balatro mod purely out of passion!

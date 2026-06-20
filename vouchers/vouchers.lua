@@ -351,6 +351,14 @@ if not FB.fb_voucher_hooks_installed then
         FB.apply_pixiu_luck_to_booster_centers()
         FB.apply_divine_prosperity_to_booster_centers()
 
+        if FB.should_force_booster_talisman
+        and FB.should_force_booster_talisman(_type, area, forced_key) then
+            _type, forced_key = FB.force_talisman_create_args(_type, forced_key, "fb_booster_talisman_key")
+        elseif FB.should_force_shop_talisman
+        and FB.should_force_shop_talisman(_type, area, forced_key) then
+            _type, forced_key = FB.force_talisman_create_args(_type, forced_key, "fb_shop_talisman_key")
+        end
+
         local is_shop_joker = FB.is_shop_joker_create(_type, area, forced_key)
 
         if is_shop_joker then
@@ -421,8 +429,109 @@ if not FB.fb_voucher_hooks_installed then
     end
 end
 
+-- Talisman voucher helpers.
+-- Otherworldly Veil: Talismans can appear in the shop.
+-- Cultist Ritual: Talismans can appear in Tarot, Spectral, and Cuisine/Food booster packs.
+FB.TALISMAN_SET = FB.TALISMAN_SET or "Talisman"
+FB.talisman_shop_rate = FB.talisman_shop_rate or 0.18
+FB.talisman_booster_rate = FB.talisman_booster_rate or 0.20
+FB.TALISMAN_ALLOWED_BOOSTER_TYPES = FB.TALISMAN_ALLOWED_BOOSTER_TYPES or {
+    Tarot = true,
+    Spectral = true,
+    Cuisine = true,
+    Food = true,
+}
+
+function FB.can_spawn_talismans()
+    return FB.has_voucher("otherworldly_veil")
+        or (G and G.GAME and G.GAME.fb_otherworldly_veil)
+end
+
+function FB.can_spawn_talismans_in_boosters()
+    return FB.has_voucher("cultist_ritual")
+        or (G and G.GAME and G.GAME.fb_cultist_ritual)
+end
+
+function FB.get_talisman_weight(key)
+    if key == "blank" then return 0 end
+    return 1
+end
+
+function FB.is_talisman_allowed_booster_type(_type)
+    return FB.TALISMAN_ALLOWED_BOOSTER_TYPES and FB.TALISMAN_ALLOWED_BOOSTER_TYPES[_type] or false
+end
+
+function FB.is_talisman_center(center)
+    return center and center.set == (FB.TALISMAN_SET or "Talisman")
+end
+
+function FB.random_talisman_key(seed)
+    local pool = {}
+
+    -- pseudoseed() crashes if given a boolean, so sanitize all callers here.
+    if type(seed) ~= "string" and type(seed) ~= "number" then
+        seed = "fb_random_talisman"
+    end
+
+    if G and G.P_CENTERS then
+        for key, center in pairs(G.P_CENTERS) do
+            if FB.is_talisman_center(center)
+            and not center.no_pool_flag
+            and key ~= "c_fb_talisman_blank" then
+                local raw_key = tostring(key):gsub("^c_fb_talisman_", ""):gsub("^c_fb_", ""):gsub("^c_", "")
+                local weight = FB.get_talisman_weight(raw_key)
+
+                for _ = 1, math.max(0, math.floor((weight or 1) * 100)) do
+                    -- Return the full center key. create_card can consume this directly as forced_key.
+                    pool[#pool + 1] = key
+                end
+            end
+        end
+    end
+
+    if #pool == 0 then return nil end
+    return pseudorandom_element(pool, pseudoseed(tostring(seed)))
+end
+
+function FB.is_shop_consumable_create(_type, area, forced_key)
+    return not forced_key
+        and G
+        and G.shop_jokers
+        and area == G.shop_jokers
+        and (_type == "Tarot"
+            or _type == "Planet"
+            or _type == "Spectral"
+            or _type == "Talisman"
+            or _type == "Consumeables"
+            or _type == "Consumable")
+end
+
+function FB.should_force_shop_talisman(_type, area, forced_key)
+    return FB.can_spawn_talismans()
+        and FB.is_shop_consumable_create(_type, area, forced_key)
+        and pseudorandom("fb_shop_talisman") < (FB.talisman_shop_rate or 0.18)
+end
+
+function FB.should_force_booster_talisman(_type, area, forced_key)
+    return FB.can_spawn_talismans_in_boosters()
+        and not forced_key
+        and G
+        and G.pack_cards
+        and area == G.pack_cards
+        and FB.is_talisman_allowed_booster_type(_type)
+        and pseudorandom("fb_booster_talisman") < (FB.talisman_booster_rate or 0.20)
+end
+
+function FB.force_talisman_create_args(_type, forced_key, seed)
+    local talisman_key = FB.random_talisman_key(seed)
+    if talisman_key then
+        return FB.TALISMAN_SET or "Talisman", talisman_key
+    end
+    return _type, forced_key
+end
+
 SMODS.Atlas {
-    key = "fb_vouchers",
+    key = "vouchers",
     path = "vouchers.png",
     px = 71,
     py = 95
@@ -430,7 +539,7 @@ SMODS.Atlas {
 
 SMODS.Voucher {
     key = "ancient_treasure",
-    atlas = "fb_vouchers",
+    atlas = "vouchers",
     pos = { x = 0, y = 0 },
     cost = 10,
     discovered = true,
@@ -448,7 +557,7 @@ SMODS.Voucher {
 
 SMODS.Voucher {
     key = "golden_mountain",
-    atlas = "fb_vouchers",
+    atlas = "vouchers",
     pos = { x = 0, y = 1 },
     cost = 10,
     requires = { "v_fb_ancient_treasure" },
@@ -465,7 +574,7 @@ SMODS.Voucher {
 
 SMODS.Voucher {
     key = "utensils",
-    atlas = "fb_vouchers",
+    atlas = "vouchers",
     pos = { x = 1, y = 0 },
     cost = 10,
     discovered = true,
@@ -481,7 +590,7 @@ SMODS.Voucher {
 
 SMODS.Voucher {
     key = "cookware",
-    atlas = "fb_vouchers",
+    atlas = "vouchers",
     pos = { x = 1, y = 1 },
     cost = 10,
     requires = { "v_fb_utensils" },
@@ -499,7 +608,7 @@ SMODS.Voucher {
 
 SMODS.Voucher {
     key = "pixiu_luck",
-    atlas = "fb_vouchers",
+    atlas = "vouchers",
     pos = { x = 2, y = 0 },
     cost = 10,
     discovered = true,
@@ -518,7 +627,7 @@ SMODS.Voucher {
 
 SMODS.Voucher {
     key = "divine_prosperity",
-    atlas = "fb_vouchers",
+    atlas = "vouchers",
     pos = { x = 2, y = 1 },
     cost = 10,
     requires = { "v_fb_pixiu_luck" },
@@ -538,7 +647,7 @@ SMODS.Voucher {
 
 SMODS.Voucher {
     key = "vision",
-    atlas = "fb_vouchers",
+    atlas = "vouchers",
     pos = { x = 3, y = 0 },
     cost = 10,
     discovered = true,
@@ -554,7 +663,7 @@ SMODS.Voucher {
 
 SMODS.Voucher {
     key = "true_sight",
-    atlas = "fb_vouchers",
+    atlas = "vouchers",
     pos = { x = 3, y = 1 },
     cost = 10,
     requires = { "v_fb_vision" },
@@ -567,4 +676,46 @@ SMODS.Voucher {
             "{C:purple}hidden interactions{} do"
         }
     }
+}
+
+SMODS.Voucher {
+    key = "otherworldly_veil",
+    atlas = "vouchers",
+    pos = { x = 4, y = 0 },
+    cost = 10,
+    discovered = true,
+    unlocked = true,
+    loc_txt = {
+        name = "Otherworldly Veil",
+        text = {
+            "{C:attention}Talismans{} may",
+            "appear in the {C:attention}Shop{}",
+            "{C:inactive}(No Blank Talismans yet){}"
+        }
+    },
+    redeem = function(self, card)
+        G.GAME.fb_otherworldly_veil = true
+    end,
+}
+
+SMODS.Voucher {
+    key = "cultist_ritual",
+    atlas = "vouchers",
+    pos = { x = 4, y = 1 },
+    cost = 10,
+    requires = { "v_fb_otherworldly_veil" },
+    discovered = true,
+    unlocked = true,
+    loc_txt = {
+        name = "Cultist Ritual",
+        text = {
+            "{C:attention}Talismans{} may",
+            "appear in {C:tarot}Tarot{},",
+            "{C:spectral}Spectral{}, and",
+            "{C:attention}Cuisine{} Packs"
+        }
+    },
+    redeem = function(self, card)
+        G.GAME.fb_cultist_ritual = true
+    end,
 }
